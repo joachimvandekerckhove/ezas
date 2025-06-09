@@ -200,8 +200,9 @@ def bayesian_design_matrix_parameter_estimation(
     ndt_design: np.ndarray,
     n_samples: int = 2000, 
     n_tune: int = 1000,
-    n_chains: int = 4 
-) -> Tuple[Parameters, np.ndarray, np.ndarray, np.ndarray]:
+    n_chains: int = 4,
+    verbosity: int = 2
+) -> Tuple[dict, List[Parameters], az.InferenceData]:
     """Estimate EZ-diffusion parameters using PyMC given observed statistics and design matrices.
     
     Args:
@@ -348,14 +349,17 @@ def bayesian_design_matrix_parameter_estimation(
                          tune=n_tune, 
                          return_inferencedata=True, 
                          initvals=init_values,
+                         chains=n_chains,
+                         progressbar=verbosity > 0,
                          target_accept=0.95)  # Higher target acceptance rate
         
         # Print summary table for only those nodes with weight in their name
-        mask = az.summary(trace).index.str.contains('weights')
-        print(az.summary(trace).loc[mask])
+        summary = az.summary(trace)
+        mask = summary.index.str.contains('weights')
+        print(summary.loc[mask])
         
         # Get posterior means
-        post_mean = az.summary(trace)['mean']
+        post_mean = summary['mean']
         
         # Extract weights
         boundary_weights_est = np.array([post_mean[f'boundary_weights[{i}]'] 
@@ -366,12 +370,7 @@ def bayesian_design_matrix_parameter_estimation(
                                   for i in range(ndt_design.shape[1])])
         
         # Get posterior standard deviations
-        try:
-            post_std = az.summary(trace)['sd']
-        except KeyError:
-            # List all keys in the trace
-            print(az.summary(trace).index)
-            raise KeyError("sd not found in trace")
+        post_std = summary['sd']
         
         # Get weight standard deviations
         boundary_weights_std = np.array([post_std[f'boundary_weights[{i}]'] 
@@ -381,13 +380,25 @@ def bayesian_design_matrix_parameter_estimation(
         ndt_weights_std = np.array([post_std[f'ndt_weights[{i}]'] 
                                   for i in range(ndt_design.shape[1])])
         
+        # Get central credible intervals (quantiles) for weights
+        quantiles = trace.posterior.quantile([0.025, 0.975])
+        
+        boundary_weights_q025 = quantiles['boundary_weights'].sel(quantile=0.025).values
+        boundary_weights_q975 = quantiles['boundary_weights'].sel(quantile=0.975).values
+        
+        drift_weights_q025 = quantiles['drift_weights'].sel(quantile=0.025).values
+        drift_weights_q975 = quantiles['drift_weights'].sel(quantile=0.975).values
+        
+        ndt_weights_q025 = quantiles['ndt_weights'].sel(quantile=0.025).values
+        ndt_weights_q975 = quantiles['ndt_weights'].sel(quantile=0.975).values
+        
         # Compute final parameter estimates
         final_boundary = np.dot(boundary_design, boundary_weights_est)
         final_drift = np.dot(drift_design, drift_weights_est)
         final_ndt = np.dot(ndt_design, ndt_weights_est)
         
         # Transform trace into List[Parameters]
-        trace_parameters = [
+        final_parameters = [
             Parameters(
                 boundary=boundary, 
                 drift=drift, 
@@ -395,10 +406,22 @@ def bayesian_design_matrix_parameter_estimation(
             ) for boundary, drift, ndt in zip(final_boundary, final_drift, final_ndt)
         ]
         
-        # Return mean parameters and weights
-        return (boundary_weights_est, drift_weights_est, ndt_weights_est,
-                boundary_weights_std, drift_weights_std, ndt_weights_std,
-                trace_parameters)
+        output = {
+            'boundary_weights_est': boundary_weights_est,
+            'drift_weights_est': drift_weights_est,
+            'ndt_weights_est': ndt_weights_est,
+            'boundary_weights_std': boundary_weights_std,
+            'drift_weights_std': drift_weights_std,
+            'ndt_weights_std': ndt_weights_std,
+            'boundary_weights_q025': boundary_weights_q025,
+            'drift_weights_q025': drift_weights_q025,
+            'ndt_weights_q025': ndt_weights_q025,
+            'boundary_weights_q975': boundary_weights_q975,
+            'drift_weights_q975': drift_weights_q975,
+            'ndt_weights_q975': ndt_weights_q975
+        }
+        
+        return output, final_parameters, trace
     
 def bayesian_design_matrix_parameter_estimation_with_hierarchical_structure(
     observations: List[Observations],
@@ -634,6 +657,7 @@ class TestSuite(unittest.TestCase):
     def test_bayesian_multiple_parameter_estimation(self):
         pass
 
+
 """
 Demonstrate design matrix parameter estimation
 """
@@ -676,15 +700,14 @@ def demonstrate_design_matrix_parameter_estimation():
         for pred_stats in pred_stats_list
     ]
 
-    boundary_weights, drift_weights, ndt_weights, \
-        boundary_weights_std, drift_weights_std, ndt_weights_std, \
-        est_params = \
-        bayesian_design_matrix_parameter_estimation(obs_stats_list, 
+    output, est_params, trace = bayesian_design_matrix_parameter_estimation(obs_stats_list, 
                                                     design_matrix.boundary_nd(), 
                                                     design_matrix.drift_nd(), 
                                                     design_matrix.ndt_nd(), 
                                                     n_samples=5000, 
-                                                    n_tune=2500)
+                                                    n_tune=2500,
+                                                    n_chains=4,
+                                                    verbosity=0)
 
     print("\n# True parameters:\n")
     [print(t) for t in true_params_list]
@@ -693,11 +716,11 @@ def demonstrate_design_matrix_parameter_estimation():
     [print(e) for e in est_params]
 
     print("\n# Weights:\n")
-    print(f"Boundary weights : {boundary_weights} ({boundary_weights_std})")
-    print(f"Drift weights    : {drift_weights} ({drift_weights_std})")
-    print(f"NDT weights      : {ndt_weights} ({ndt_weights_std})")
+    print(f"Boundary weights : {output['boundary_weights_est']} ({output['boundary_weights_std']})")
+    print(f"Drift weights    : {output['drift_weights_est']} ({output['drift_weights_std']})")
+    print(f"NDT weights      : {output['ndt_weights_est']} ({output['ndt_weights_std']})")
 
-    print("# True weights:\n")
+    print("\n# True weights:\n")
     print(f"Boundary weights : {design_matrix.boundary_weights()}")
     print(f"Drift weights    : {design_matrix.drift_weights()}")
     print(f"NDT weights      : {design_matrix.ndt_weights()}")
