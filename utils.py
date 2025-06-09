@@ -6,6 +6,25 @@ from base import (Parameters, SummaryStats,
                    forward_equations, resample_summary_stats, inverse_equations)
 import unittest
 import argparse
+import time
+import inspect
+import os
+
+"""
+Announce utility
+"""
+import time
+import inspect
+
+def announce():
+    frame = inspect.stack()[1]
+    full_path = frame.filename
+    line_number = frame.lineno
+    function_name = frame.function
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+
+    print(f"\n# [{timestamp}] {full_path}:{line_number}#{function_name}()\n")
+
 
 """
 Results class

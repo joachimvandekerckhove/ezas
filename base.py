@@ -238,15 +238,14 @@ def _forward_equations_single(params: Parameters) -> SummaryStats:
 """
 Inverse equations
 """
-def inverse_equations(obs_stats: SummaryStats | list[SummaryStats]) -> Parameters | list[Parameters]:
+def inverse_equations(obs_stats: SummaryStats | list[SummaryStats] | Observations | list[Observations]) -> Parameters | list[Parameters]:
     """Estimate parameters from observed summary statistics"""
     if isinstance(obs_stats, Observations):
         obs_stats = obs_stats.to_summary_stats()
     if isinstance(obs_stats, list) and all(isinstance(x, Observations) for x in obs_stats):
         obs_stats = [s.to_summary_stats() for s in obs_stats]
-        
     if not (isinstance(obs_stats, SummaryStats) or (isinstance(obs_stats, list) and all(isinstance(x, SummaryStats) for x in obs_stats))):
-        raise TypeError("obs_stats must be a SummaryStats instance or a list of SummaryStats")
+        raise TypeError("obs_stats must be a SummaryStats instance or a list of SummaryStats or a Observations instance or a list of Observations")
     
     if isinstance(obs_stats, SummaryStats):
         return _inverse_equations_single(obs_stats)
