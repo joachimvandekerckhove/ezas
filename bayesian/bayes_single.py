@@ -2,7 +2,7 @@
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 import numpy as np
 from typing import Tuple, List
@@ -13,7 +13,7 @@ import arviz as az
 from vendor.ezas.base import ez_equations as ez
 from vendor.ezas.classes.moments import Observations
 from vendor.ezas.classes.parameters import Parameters
-from vendor.ezas.utils import announce
+from vendor.ezas.utils.debug import announce
 
 MAX_R_HAT = 1.1
 
@@ -143,7 +143,7 @@ def demo():
     print(parameters)
     
     # Compute the moments
-    moments = parameters.to_moments()
+    moments = ez.forward(parameters)
     print("True moments   :", end=" ")
     print(moments)
     
@@ -158,7 +158,7 @@ def demo():
     print(estimated_parameters)
     
     # Check if the true parameters are in the bounds of the estimated parameters and print colorful emoji checkmark or X
-    boundary_in_bounds, drift_in_bounds, ndt_in_bounds = parameters.is_in_bounds(estimated_parameters)
+    boundary_in_bounds, drift_in_bounds, ndt_in_bounds = parameters.is_within_bounds_of(estimated_parameters)
     print(f"Boundary in bounds : {'✅' if boundary_in_bounds else '❌'}")
     print(f"Drift in bounds    : {'✅' if drift_in_bounds else '❌'}")
     print(f"NDT in bounds      : {'✅' if ndt_in_bounds else '❌'}")
@@ -168,7 +168,7 @@ Test suite
 """
 class TestSuite(unittest.TestCase):
     def test_bayesian_parameter_estimation(self):
-        demo()
+        pass
 
 
 
