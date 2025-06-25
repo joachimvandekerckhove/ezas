@@ -23,7 +23,7 @@ def linear_prediction(design_matrix: np.ndarray, weights) -> np.ndarray:
     
     return design_matrix @ weights
 
-def linear_regression(design_matrix: np.ndarray, parameters) -> np.ndarray:
+def linear_regression_pinv(design_matrix: np.ndarray, parameters) -> np.ndarray:
     """
     Perform linear regression: weights = pinv(design_matrix) @ parameters
     
@@ -42,6 +42,28 @@ def linear_regression(design_matrix: np.ndarray, parameters) -> np.ndarray:
         raise ValueError(f"Design matrix rows ({design_matrix.shape[0]}) must match parameters length ({parameters.shape[0]})")
     
     return np.linalg.pinv(design_matrix) @ parameters
+
+
+def linear_regression_lstsq(design_matrix: np.ndarray, parameters) -> np.ndarray:
+    """
+    Perform linear regression: weights = pinv(design_matrix) @ parameters
+    
+    Args:
+        design_matrix: Design matrix (n_conditions x n_weights)
+        parameters: Parameter vector (n_conditions,) - can be list or numpy array
+    
+    Returns:
+        Estimated weights (n_weights,)
+    """
+    # Convert parameters to numpy array if it's a list
+    if isinstance(parameters, list):
+        parameters = np.array(parameters)
+    
+    if design_matrix.shape[0] != parameters.shape[0]:
+        raise ValueError(f"Design matrix rows ({design_matrix.shape[0]}) must match parameters length ({parameters.shape[0]})")
+    
+    return np.linalg.lstsq(design_matrix, parameters, rcond=None)[0]
+
 
 def linear_prediction_batch(design_matrix: np.ndarray, weights) -> np.ndarray:
     """
@@ -79,7 +101,7 @@ def linear_regression_batch(design_matrix: np.ndarray, parameters) -> np.ndarray
         parameters = np.array(parameters)
     
     if parameters.ndim == 1:
-        return linear_regression(design_matrix, parameters)
+        return linear_regression_pinv(design_matrix, parameters)
     else:
         return np.linalg.pinv(design_matrix) @ parameters
 
@@ -106,7 +128,7 @@ def check_linear_algebra_consistency(design_matrix: np.ndarray,
         parameters = np.array(parameters)
     
     predicted_params = linear_prediction(design_matrix, weights)
-    estimated_weights = linear_regression(design_matrix, parameters)
+    estimated_weights = linear_regression_pinv(design_matrix, parameters)
     reconstructed_params = linear_prediction(design_matrix, estimated_weights)
     
     # Check if prediction matches parameters
@@ -140,7 +162,7 @@ if __name__ == "__main__":
             np.testing.assert_array_almost_equal(result, expected)
 
         def test_linear_regression(self):
-            result = linear_regression(self.design_matrix, self.parameters)
+            result = linear_regression_pinv(self.design_matrix, self.parameters)
             expected = np.linalg.pinv(self.design_matrix) @ self.parameters
             np.testing.assert_array_almost_equal(result, expected)
 
@@ -155,7 +177,7 @@ if __name__ == "__main__":
 
         def test_linear_regression_batch(self):
             result_single = linear_regression_batch(self.design_matrix, self.parameters)
-            expected_single = linear_regression(self.design_matrix, self.parameters)
+            expected_single = linear_regression_pinv(self.design_matrix, self.parameters)
             np.testing.assert_array_almost_equal(result_single, expected_single)
             params_batch = np.column_stack([self.parameters, self.parameters * 2])
             result_batch = linear_regression_batch(self.design_matrix, params_batch)
@@ -179,7 +201,7 @@ if __name__ == "__main__":
                 linear_prediction(self.design_matrix, wrong_weights)
             wrong_params = np.array([1.0, 1.5])  # Wrong length
             with self.assertRaises(ValueError):
-                linear_regression(self.design_matrix, wrong_params)
+                linear_regression_pinv(self.design_matrix, wrong_params)
 
         def test_list_inputs(self):
             """Test that functions work correctly with list inputs."""
@@ -193,8 +215,8 @@ if __name__ == "__main__":
             np.testing.assert_array_almost_equal(result_pred, expected_pred)
             
             # Test linear regression with list
-            result_reg = linear_regression(self.design_matrix, params_list)
-            expected_reg = linear_regression(self.design_matrix, self.parameters)
+            result_reg = linear_regression_pinv(self.design_matrix, params_list)
+            expected_reg = linear_regression_pinv(self.design_matrix, self.parameters)
             np.testing.assert_array_almost_equal(result_reg, expected_reg)
             
             # Test consistency check with lists
