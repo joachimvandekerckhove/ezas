@@ -9,7 +9,6 @@ from typing import Tuple, List
 from vendor.ezas.base import ez_equations as ez
 from vendor.ezas.classes.moments import Observations
 from vendor.ezas.classes.parameters import Parameters
-from vendor.ezas.classes.design_matrix import DesignMatrix
 import unittest
 import time
 import argparse
