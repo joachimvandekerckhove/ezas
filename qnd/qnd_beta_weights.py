@@ -404,6 +404,9 @@ class TestSuite(unittest.TestCase):
         os.environ['TQDM_DISABLE'] = '0'
     
     def test_demo_execution_1(self):
+        """
+        Test that the demo works correctly.
+        """
         demo()
         self.assertIn("## True beta weights:", sys.stdout.getvalue())
         self.assertIn("## True parameters:", sys.stdout.getvalue())
@@ -413,6 +416,9 @@ class TestSuite(unittest.TestCase):
         self.assertIn("## Checking parameter coverage...", sys.stdout.getvalue())
     
     def test_demo_execution_2(self):
+        """
+        Test that the demo works correctly with a custom design matrix.
+        """
         demo(design_matrix=_EXAMPLE_DESIGN_MATRIX,
              sample_sizes=[100, 200, 300, 400])
         self.assertIn("## True beta weights:", sys.stdout.getvalue())
@@ -441,6 +447,9 @@ class TestSuite(unittest.TestCase):
                  sample_sizes=[100, 200, 300, 400, -500])
     
     def test_simulation_input_checks_1(self):
+        """
+        Test that the simulation works correctly.
+        """
         with self.assertRaises(ValueError):
             simulation(simulation_repetitions=-1)
         with self.assertRaises(TypeError):
@@ -451,6 +460,9 @@ class TestSuite(unittest.TestCase):
             simulation(simulation_repetitions="test")
     
     def test_simulation_parallel_input_checks(self):
+        """
+        Test that the simulation parallel works correctly.
+        """
         with self.assertRaises(ValueError):
             simulation_parallel(simulation_repetitions=-1)
         with self.assertRaises(TypeError):

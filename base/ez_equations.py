@@ -75,8 +75,11 @@ def random(lower_bound: Parameters, upper_bound: Parameters) -> Parameters:
     return Parameters.random(lower_bound, upper_bound)
 
 # --- TESTS AND DEMO ---
-class TestEZEquations(unittest.TestCase):
+class TestSuite(unittest.TestCase):
     def test_forward_inverse(self):
+        """
+        Test that forward and inverse equations work correctly.
+        """
         p = Parameters(1.0, 0.5, -0.2)
         m = forward(p)
         self.assertIsInstance(m, Moments)
@@ -86,16 +89,25 @@ class TestEZEquations(unittest.TestCase):
         self.assertAlmostEqual(p.boundary(), p2.boundary(), places=2)
         self.assertAlmostEqual(p.ndt(), p2.ndt(), places=2)
     def test_forward_list(self):
+        """
+        Test that forward equations work correctly for a list of parameters.
+        """
         plist = [Parameters(1.0, 0.5, 0.2), Parameters(1.2, 0.6, -0.3)]
         mlist = forward(plist)
         self.assertEqual(len(mlist), 2)
         self.assertIsInstance(mlist[0], Moments)
     def test_inverse_list(self):
+        """
+        Test that inverse equations work correctly for a list of moments.
+        """
         mlist = [Moments(0.7, 0.4, 0.2), Moments(0.8, 0.5, 0.1)]
         plist = inverse(mlist)
         self.assertEqual(len(plist), 2)
         self.assertIsInstance(plist[0], Parameters)
     def test_generate_random_parameters(self):
+        """
+        Test that random parameters are generated correctly.
+        """
         lb = Parameters(0, 0, 0)
         ub = Parameters(1, 1, 1)
         p = random(lb, ub)

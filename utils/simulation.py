@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 import numpy as np
 from typing import Tuple, List
 from vendor.ezas.base import ez_equations as ez
-from vendor.ezas.classes.parameters import Parameters
+from vendor.ezas.classes import Parameters
 import unittest
 import argparse
 
@@ -79,21 +79,21 @@ def calculate_error(true: Parameters,
                     estimated: Parameters) -> Tuple[Parameters, Parameters]:
     """Calculate bias and squared error"""
     bias = Parameters(
-        true.boundary - estimated.boundary,
-        true.drift - estimated.drift,
-        true.ndt - estimated.ndt
+        true.boundary() - estimated.boundary(),
+        true.drift() - estimated.drift(),
+        true.ndt() - estimated.ndt()
     )
     
     relative_bias = Parameters(
-        (true.boundary - estimated.boundary) / true.boundary,
-        (true.drift - estimated.drift) / true.drift,
-        (true.ndt - estimated.ndt) / true.ndt
+        (true.boundary() - estimated.boundary()) / true.boundary(),
+        (true.drift() - estimated.drift()) / true.drift(),
+        (true.ndt() - estimated.ndt()) / true.ndt()
     )
     
     squared_error = Parameters(
-        bias.boundary**2,
-        bias.drift**2,
-        bias.ndt**2
+        bias.boundary()**2,
+        bias.drift()**2,
+        bias.ndt()**2
     )
     
     return bias, squared_error, relative_bias
@@ -105,29 +105,29 @@ def mean_parameters(results: List[Results]) -> Results:
     """Calculate the mean parameters from a list of results"""
     return Results(
         Parameters(
-            np.mean([result.true_params().boundary for result in results]),
-            np.mean([result.true_params().drift for result in results]),
-            np.mean([result.true_params().ndt for result in results])
+            np.mean([result.true_params().boundary() for result in results]),
+            np.mean([result.true_params().drift() for result in results]),
+            np.mean([result.true_params().ndt() for result in results])
         ),
         Parameters(
-            np.mean([result.est_params().boundary for result in results]),
-            np.mean([result.est_params().drift for result in results]),
-            np.mean([result.est_params().ndt for result in results])
+            np.mean([result.est_params().boundary() for result in results]),
+            np.mean([result.est_params().drift() for result in results]),
+            np.mean([result.est_params().ndt() for result in results])
         ),
         Parameters(
-            np.mean([result.bias().boundary for result in results]),
-            np.mean([result.bias().drift for result in results]),
-            np.mean([result.bias().ndt for result in results])
+            np.mean([result.bias().boundary() for result in results]),
+            np.mean([result.bias().drift() for result in results]),
+            np.mean([result.bias().ndt() for result in results])
         ),
         Parameters(
-            np.mean([result.sq_error().boundary for result in results]),
-            np.mean([result.sq_error().drift for result in results]),
-            np.mean([result.sq_error().ndt for result in results])
+            np.mean([result.sq_error().boundary() for result in results]),
+            np.mean([result.sq_error().drift() for result in results]),
+            np.mean([result.sq_error().ndt() for result in results])
         ),
         Parameters(
-            np.mean([result.relative_bias().boundary for result in results]),
-            np.mean([result.relative_bias().drift for result in results]),
-            np.mean([result.relative_bias().ndt for result in results])
+            np.mean([result.relative_bias().boundary() for result in results]),
+            np.mean([result.relative_bias().drift() for result in results]),
+            np.mean([result.relative_bias().ndt() for result in results])
         )
     )
 
@@ -153,7 +153,61 @@ def run_simulation(N: int,
 Test suite
 """
 class TestSuite(unittest.TestCase):
-    pass
+    def test_results(self):
+        """
+        Test that the Results class works correctly.
+        """
+        results = Results(
+            true_params=Parameters(1.0, 2.0, 3.0),
+            est_params=Parameters(1.0, 2.0, 3.0),
+            bias=Parameters(0.0, 0.0, 0.0),
+            sq_error=Parameters(0.0, 0.0, 0.0),
+            relative_bias=Parameters(0.0, 0.0, 0.0)
+        )
+        self.assertEqual(results.true_params(), Parameters(1.0, 2.0, 3.0))
+        self.assertEqual(results.est_params(), Parameters(1.0, 2.0, 3.0))
+        self.assertEqual(results.bias(), Parameters(0.0, 0.0, 0.0))
+        self.assertEqual(results.sq_error(), Parameters(0.0, 0.0, 0.0))
+        self.assertEqual(results.relative_bias(), Parameters(0.0, 0.0, 0.0))
+        
+    def test_calculate_error(self):
+        """
+        Test that the calculate_error function works correctly.
+        """
+        bias, sq_error, relative_bias = calculate_error(
+            Parameters(1.0, 2.0, 3.0),
+            Parameters(1.0, 2.0, 3.0)
+        )
+        self.assertEqual(bias, Parameters(0.0, 0.0, 0.0))
+        self.assertEqual(sq_error, Parameters(0.0, 0.0, 0.0))
+        self.assertEqual(relative_bias, Parameters(0.0, 0.0, 0.0))
+        
+    def test_mean_parameters(self):
+        """
+        Test that the mean_parameters function works correctly.
+        """
+        results = [
+            Results(
+                true_params=Parameters(1.0, 2.0, 3.0),
+                est_params=Parameters(1.0, 2.0, 3.0),
+                bias=Parameters(0.0, 0.0, 0.0),
+                sq_error=Parameters(0.0, 0.0, 0.0),
+                relative_bias=Parameters(0.0, 0.0, 0.0)
+            ),
+            Results(
+                true_params=Parameters(2.0, 3.0, 4.0),
+                est_params=Parameters(2.0, 3.0, 4.0),
+                bias=Parameters(0.0, 0.0, 0.0),
+                sq_error=Parameters(0.0, 0.0, 0.0),
+                relative_bias=Parameters(0.0, 0.0, 0.0)
+            )
+        ]
+        mean_results = mean_parameters(results) 
+        self.assertEqual(mean_results.true_params(), Parameters(1.5, 2.5, 3.5))
+        self.assertEqual(mean_results.est_params(), Parameters(1.5, 2.5, 3.5))
+        self.assertEqual(mean_results.bias(), Parameters(0.0, 0.0, 0.0))
+        self.assertEqual(mean_results.sq_error(), Parameters(0.0, 0.0, 0.0))
+        self.assertEqual(mean_results.relative_bias(), Parameters(0.0, 0.0, 0.0))
 
 """
 Demo

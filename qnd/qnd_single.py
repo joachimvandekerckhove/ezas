@@ -4,16 +4,12 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-import numpy as np
-from typing import Tuple, List
-from vendor.ezas.base import ez_equations as ez
-from vendor.ezas.classes.moments import Observations
-from vendor.ezas.classes.parameters import Parameters
+from vendor.ezas import ez, Observations, Parameters
 import unittest
 import time
 import argparse
 from tqdm import tqdm
-import vendor.ezas.utils.prettify as pretty
+from vendor.ezas.utils import prettify as pretty
 
 _DEMO_DEFAULT_PARAMETERS = Parameters(1.0, 0.5, 0.2)
 _DEMO_DEFAULT_SAMPLE_SIZE = 10
@@ -173,12 +169,18 @@ class TestSuite(unittest.TestCase):
         sys.stderr = self.old_stderr
         
     def test_demo_execution_11(self):
+        """
+        Test that the demo works correctly.
+        """
         demo(true_parameters=_DEMO_DEFAULT_PARAMETERS, 
              sample_size=_DEMO_DEFAULT_SAMPLE_SIZE)
         self.assertIn(f"Sample size: {_DEMO_DEFAULT_SAMPLE_SIZE}", 
                       sys.stdout.getvalue())
         
     def test_demo_execution_10(self):
+        """
+        Test that the demo works correctly.
+        """
         demo(true_parameters=_DEMO_DEFAULT_PARAMETERS)
         self.assertIn(f"Sample size: {_DEMO_DEFAULT_SAMPLE_SIZE}", 
                       sys.stdout.getvalue())
@@ -188,6 +190,9 @@ class TestSuite(unittest.TestCase):
                       sys.stdout.getvalue())
     
     def test_demo_execution_01(self):
+        """
+        Test that the demo works correctly.
+        """
         demo(true_parameters=None, 
              sample_size=_DEMO_DEFAULT_SAMPLE_SIZE)
         self.assertIn(f"Sample size: {_DEMO_DEFAULT_SAMPLE_SIZE}", 
@@ -197,6 +202,9 @@ class TestSuite(unittest.TestCase):
                       sys.stdout.getvalue())
         
     def test_demo_execution_00(self):
+        """
+        Test that the demo works correctly.
+        """
         demo()
         self.assertIn(f"Sample size: {_DEMO_DEFAULT_SAMPLE_SIZE}", 
                       sys.stdout.getvalue())
@@ -206,6 +214,9 @@ class TestSuite(unittest.TestCase):
                       sys.stdout.getvalue())
         
     def test_demo_input_checks_1(self):
+        """
+        Test that the demo works correctly.
+        """
         with self.assertRaises(TypeError): 
             demo(true_parameters=None, 
                  sample_size="test")
@@ -214,6 +225,9 @@ class TestSuite(unittest.TestCase):
                  sample_size=_DEMO_DEFAULT_PARAMETERS)
         
     def test_demo_input_checks_2(self):
+        """
+        Test that the demo works correctly.
+        """
         with self.assertRaises(TypeError): 
             demo(true_parameters=_DEMO_DEFAULT_PARAMETERS, 
                  sample_size="test")
@@ -222,6 +236,9 @@ class TestSuite(unittest.TestCase):
                  sample_size=_DEMO_DEFAULT_PARAMETERS)
         
     def test_demo_input_checks_3(self):
+        """
+        Test that the demo works correctly.
+        """
         with self.assertRaises(TypeError): 
             demo(true_parameters="test", 
                  sample_size=None)
@@ -236,6 +253,9 @@ class TestSuite(unittest.TestCase):
                  sample_size=_DEMO_DEFAULT_PARAMETERS)
         
     def test_demo_input_checks_4(self):
+        """
+        Test that the demo works correctly.
+        """
         with self.assertRaises(TypeError): 
             demo(true_parameters=_DEMO_DEFAULT_SAMPLE_SIZE, 
                  sample_size=_DEMO_DEFAULT_SAMPLE_SIZE)
@@ -250,10 +270,16 @@ class TestSuite(unittest.TestCase):
                  sample_size=_DEMO_DEFAULT_PARAMETERS)
 
     def test_simulation_execution_1(self):
+        """
+        Test that the simulation works correctly.
+        """
         simulation(simulation_repetitions=10)
         self.assertIn("Coverage:", sys.stdout.getvalue())
         
     def test_simulation_input_checks(self):
+        """
+        Test that the simulation works correctly.
+        """
         with self.assertRaises(TypeError): 
             simulation(simulation_repetitions="10")
         with self.assertRaises(TypeError):

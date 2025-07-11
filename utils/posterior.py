@@ -30,10 +30,12 @@ class PosteriorSummary:
     def field_names(self):
         return self._field_names
     
-    def coverage(self):
-        return (self._lower_quantiles < self._true_values) & (self._true_values < self._upper_quantiles)
+    def coverage(self) -> list[bool]:
+        lower_coverage = np.less(self._lower_quantiles, self._true_values)
+        upper_coverage = np.less(self._true_values, self._upper_quantiles)
+        return np.logical_and(lower_coverage, upper_coverage).tolist()
     
-    def joint_coverage(self):
+    def joint_coverage(self) -> float:
         return np.mean(self.coverage())
 
     def true_values(self):
@@ -63,8 +65,27 @@ class PosteriorSummary:
 Test suite
 """
 class TestSuite(unittest.TestCase):
-    pass
-
+    def test_posterior_summary(self):
+        """
+        Test that the posterior summary works correctly.
+        """
+        posterior_summary = PosteriorSummary(
+            true_values=[1.0, 2.0, 3.0],
+            means=[1.0, 2.0, 3.0],
+            stds=[0.1, 0.2, 0.3],
+            lower_quantiles=[0.5, 1.0, 1.5],
+            upper_quantiles=[1.5, 2.0, 2.5],
+            field_names=["boundary", "drift", "ndt"]
+        )
+        self.assertEqual(posterior_summary.true_values(), [1.0, 2.0, 3.0])
+        self.assertEqual(posterior_summary.means(), [1.0, 2.0, 3.0])
+        self.assertEqual(posterior_summary.stds(), [0.1, 0.2, 0.3])
+        self.assertEqual(posterior_summary.lower_quantiles(), [0.5, 1.0, 1.5])
+        self.assertEqual(posterior_summary.upper_quantiles(), [1.5, 2.0, 2.5])
+        self.assertEqual(posterior_summary.field_names(), ["boundary", "drift", "ndt"])
+        self.assertEqual(posterior_summary.coverage(), [True, False, False])
+        self.assertEqual(posterior_summary.joint_coverage(), 1/3)
+        
 """
 Demo
 """
