@@ -328,7 +328,7 @@ def demo(
     ci_contains_true = (inference_result['lower_ci'] <= true_drift_diff <= inference_result['upper_ci'])
     print(f"  True value in CI: {pretty(ci_contains_true)}")
 
-def simulation_demo(repetitions: int = 1000) -> None:
+def simulation(repetitions: int = 1000) -> None:
     """Run a simulation study of the drift difference inference method."""
     print("=== QND Drift Difference Inference Simulation ===\n")
     
@@ -403,6 +403,6 @@ if __name__ == "__main__":
     if args.demo:
         demo(true_drift_diff=args.drift_diff)
     elif args.simulation:
-        simulation_demo(repetitions=args.repetitions)
+        simulation(repetitions=args.repetitions)
     else:
         print("Use --demo for basic demonstration or --simulation for simulation study") 
