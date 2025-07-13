@@ -14,13 +14,22 @@ The EZ-diffusion model is a simplified version of the drift-diffusion model that
 
 EZAS provides multiple complementary approaches to parameter estimation:
 
-- **`base/`** - Core mathematical equations (forward/inverse transformations)
-- **`classes/`** - Data structures for observations, parameters, and design matrices
-- **`utils/`** - Utility functions for linear algebra, simulation, and result formatting
-- **`qnd/`** - Quick-and-dirty bootstrap methods for fast uncertainty estimates
-- **`ez_pymc/`** - Full Bayesian estimation using PyMC for complete uncertainty quantification
+- **[`base/`](./base/README.md)`** - Core mathematical equations (forward/inverse transformations)
+- **[`classes/`](./classes/README.md)`** - Data structures for observations, parameters, and design matrices
+- **[`utils/`](./utils/README.md)** - Utility functions for linear algebra, simulation, and result formatting
+- **[`qnd/`](./qnd/README.md)** - Quick-and-dirty bootstrap methods for fast uncertainty estimates
+- **[`ez_pymc/`](./ez_pymc/README.md)** - Full Bayesian estimation using PyMC for complete uncertainty quantification
+
+These modules have separate README files for further information:
 
 Most files can be run directly with `--demo` to see examples, `--test` to run unit tests, or `--simulation` to run validation studies.
 
 There are also global `demo.py` and `test.py` scripts.  To run a specific demo, call for example:
 `demos.py --engine qnd --demo single`
+
+## System Requirements
+
+- **Python**: 3.11.6
+- **Linux**: Ubuntu 5.15.0-141-generic
+- **PyMC**: 5.10.0
+
