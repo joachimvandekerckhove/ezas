@@ -10,10 +10,17 @@ The EZ-diffusion model is a simplified version of the drift-diffusion model that
 - **Drift** - How good people are at the task (higher = better performance) 
 - **Non-decision time** - How long encoding and motor response take (time not spent deciding)
 
-EZAS provides multiple ways to estimate these parameters:
-- **Analytical estimation** - Fast mathematical formulas
-- **Bayesian estimation** - Full uncertainty quantification using MCMC
-- **Quick-and-dirty estimation** - Bootstrap methods for speed
-- **Design matrix approaches** - Handle complex multi-condition experiments
+## Module Structure
 
-Most files can be run directly with `--demo` to see examples or `--test` to run unit tests.
+EZAS provides multiple complementary approaches to parameter estimation:
+
+- **`base/`** - Core mathematical equations (forward/inverse transformations)
+- **`classes/`** - Data structures for observations, parameters, and design matrices
+- **`utils/`** - Utility functions for linear algebra, simulation, and result formatting
+- **`qnd/`** - Quick-and-dirty bootstrap methods for fast uncertainty estimates
+- **`ez_pymc/`** - Full Bayesian estimation using PyMC for complete uncertainty quantification
+
+Most files can be run directly with `--demo` to see examples, `--test` to run unit tests, or `--simulation` to run validation studies.
+
+There are also global `demo.py` and `test.py` scripts.  To run a specific demo, call for example:
+`demos.py --engine qnd --demo single`
