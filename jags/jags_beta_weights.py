@@ -72,25 +72,41 @@ def mcmc_samples_to_beta_weights(
     boundary_weights_lower = []
     boundary_weights_upper = []
     
-    for i in range(boundary_design.shape[1]):
-        param_name = f'boundary_weights_{i+1}'
+    if boundary_design.shape[1] > 1:    
+        for i in range(boundary_design.shape[1]):
+            param_name = f'boundary_weights_{i+1}'
+            stats = mcmc_samples.stats[param_name]
+            # Use original scale values directly
+            boundary_weights_mean.append(stats['mean'])
+            boundary_weights_sd.append(stats['std'])
+            boundary_weights_lower.append(stats['q025'])
+            boundary_weights_upper.append(stats['q975'])
+    else:
+        param_name = 'boundary_weights'
         stats = mcmc_samples.stats[param_name]
-        # Use original scale values directly
         boundary_weights_mean.append(stats['mean'])
         boundary_weights_sd.append(stats['std'])
         boundary_weights_lower.append(stats['q025'])
         boundary_weights_upper.append(stats['q975'])
-    
+        
     # Extract drift weights statistics (samples are on original scale)
     drift_weights_mean = []
     drift_weights_sd = []
     drift_weights_lower = []
     drift_weights_upper = []
     
-    for i in range(drift_design.shape[1]):
-        param_name = f'drift_weights_{i+1}'
+    if drift_design.shape[1] > 1:
+        for i in range(drift_design.shape[1]):
+            param_name = f'drift_weights_{i+1}'
+            stats = mcmc_samples.stats[param_name]
+            # Use original scale values directly
+            drift_weights_mean.append(stats['mean'])
+            drift_weights_sd.append(stats['std'])
+            drift_weights_lower.append(stats['q025'])
+            drift_weights_upper.append(stats['q975'])
+    else:
+        param_name = 'drift_weights'
         stats = mcmc_samples.stats[param_name]
-        # Use original scale values directly
         drift_weights_mean.append(stats['mean'])
         drift_weights_sd.append(stats['std'])
         drift_weights_lower.append(stats['q025'])
@@ -102,10 +118,18 @@ def mcmc_samples_to_beta_weights(
     ndt_weights_lower = []
     ndt_weights_upper = []
     
-    for i in range(ndt_design.shape[1]):
-        param_name = f'ndt_weights_{i+1}'
+    if ndt_design.shape[1] > 1:
+        for i in range(ndt_design.shape[1]):
+            param_name = f'ndt_weights_{i+1}'
+            stats = mcmc_samples.stats[param_name]
+            # Use original scale values directly
+            ndt_weights_mean.append(stats['mean'])
+            ndt_weights_sd.append(stats['std'])
+            ndt_weights_lower.append(stats['q025'])
+            ndt_weights_upper.append(stats['q975'])
+    else:
+        param_name = 'ndt_weights'
         stats = mcmc_samples.stats[param_name]
-        # Use original scale values directly
         ndt_weights_mean.append(stats['mean'])
         ndt_weights_sd.append(stats['std'])
         ndt_weights_lower.append(stats['q025'])
@@ -218,7 +242,45 @@ def bayesian_design_matrix_parameter_estimation(
         'ndt_design'         : nondt_mtx.tolist()
     }
     
-    # JAGS model string - exactly like PyMC with unconstrained normal priors
+    # JAGS model string
+    # Detect if a design matrix is a column vector, if so, replace matrix 
+    # multiplication with regression equation
+    drift_section = ""
+    if drift_mtx.shape[1] == 1:
+        drift_section = """
+        for (i in 1:n_conditions) { 
+            drift[i] <- drift_design[i,1] * drift_weights
+        }
+        """
+    else:
+        drift_section = """
+        drift <- drift_design %*% drift_weights
+        """
+    
+    boundary_section = ""
+    if bound_mtx.shape[1] == 1:
+        boundary_section = """
+        for (i in 1:n_conditions) { 
+            boundary[i] <- boundary_design[i,1] * boundary_weights
+        }
+        """
+    else:
+        boundary_section = """
+        boundary <- boundary_design %*% boundary_weights
+        """
+    
+    ndt_section = ""
+    if nondt_mtx.shape[1] == 1:
+        ndt_section = """
+        for (i in 1:n_conditions) { 
+            ndt[i] <- ndt_design[i,1] * ndt_weights
+        }
+        """
+    else:
+        ndt_section = """
+        ndt <- ndt_design %*% ndt_weights
+        """
+    
     model_string = """
     model {
         # Priors for weights - unconstrained normal priors (exactly like PyMC)
@@ -233,11 +295,11 @@ def bayesian_design_matrix_parameter_estimation(
             ndt_weights[i] ~ dnorm(0, 0.25)
         }
         
-        # Linear design matrix regression
-        boundary <- boundary_design %*% boundary_weights
-        drift    <- drift_design    %*% drift_weights
-        ndt      <- ndt_design      %*% ndt_weights
-        
+        # Linear design matrix regression""" + \
+        boundary_section + \
+        drift_section + \
+        ndt_section + \
+        """
         for (j in 1:n_conditions) {                      
             # Helper calculation for accuracy
             y[j] <- exp(-boundary[j] * drift[j])
