@@ -20,6 +20,7 @@ EZAS provides multiple complementary approaches to parameter estimation:
 - **[`qnd/`](./qnd/README.md)** - Quick-and-dirty bootstrap methods for fast uncertainty estimates
 - **[`ez_pymc/`](./ez_pymc/README.md)** - Full Bayesian estimation using PyMC for complete uncertainty quantification
 - **[`jags/`](./jags/README.md)** - Full Bayesian estimation using JAGS with robust diagnostics
+- **[`mcmc/`](./mcmc/README.md)** - Fallback MCMC implementation for when JAGS is not available
 
 These modules have separate README files for further information:
 
