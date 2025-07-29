@@ -37,9 +37,9 @@ There are also global `demo.py` and `test.py` scripts.  To run a specific demo, 
 
 ## Authors
 
-Joachim Vandekerckhove, UC Irvine
-Elizabeth L. Fox, Air Force Research Laboratory
+- Joachim Vandekerckhove, UC Irvine
+- Elizabeth L. Fox, Air Force Research Laboratory
 
-The views expressed are those of the authors and do not reflect the official guidance or position of the United States Government, the Department of Defense or of the United States Air Force.
+_The views expressed are those of the authors and do not reflect the official guidance or position of the United States Government, the Department of Defense or of the United States Air Force._
 
-Distribution A. Approved for public release; distribution unlimited. AFRL-2025-3711; Cleared 28 July 2025.
+_Distribution A. Approved for public release; distribution unlimited. AFRL-2025-3711; Cleared 28 July 2025._
