@@ -6,8 +6,7 @@ import numpy as np
 import unittest
 import argparse
 
-from vendor.ezas.classes.parameters import Parameters
-from vendor.ezas.classes.moments import Moments, Observations
+from vendor.ezas.classes import Parameters, Moments, Observations
 
 def forward(params: Parameters | list[Parameters]) -> Moments | list[Moments]:
     if not (isinstance(params, Parameters) or (isinstance(params, list) and all(isinstance(x, Parameters) for x in params))):
