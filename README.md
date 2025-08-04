@@ -35,3 +35,11 @@ There are also global `demo.py` and `test.py` scripts.  To run a specific demo, 
 - **Linux**: Ubuntu 5.15.0-141-generic
 - **PyMC**: 5.10.0
 
+## Authors
+
+Joachim Vandekerckhove, UC Irvine
+Elizabeth L. Fox, Air Force Research Laboratory
+
+The views expressed are those of the authors and do not reflect the official guidance or position of the United States Government, the Department of Defense or of the United States Air Force.
+
+Distribution A. Approved for public release; distribution unlimited. AFRL-2025-3711; Cleared 28 July 2025.
