@@ -77,7 +77,7 @@ def random(lower_bound: Parameters, upper_bound: Parameters) -> Parameters:
 # --- TESTS AND DEMO ---
 class TestEZEquations(unittest.TestCase):
     def test_forward_inverse(self):
-        p = Parameters(1.0, 0.5, 0.2)
+        p = Parameters(1.0, 0.5, -0.2)
         m = forward(p)
         self.assertIsInstance(m, Moments)
         p2 = inverse(m)
@@ -86,7 +86,7 @@ class TestEZEquations(unittest.TestCase):
         self.assertAlmostEqual(p.boundary(), p2.boundary(), places=2)
         self.assertAlmostEqual(p.ndt(), p2.ndt(), places=2)
     def test_forward_list(self):
-        plist = [Parameters(1.0, 0.5, 0.2), Parameters(1.2, 0.6, 0.3)]
+        plist = [Parameters(1.0, 0.5, 0.2), Parameters(1.2, 0.6, -0.3)]
         mlist = forward(plist)
         self.assertEqual(len(mlist), 2)
         self.assertIsInstance(mlist[0], Moments)
