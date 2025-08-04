@@ -10,7 +10,8 @@ import unittest
 
 from vendor.ezas.base import ez_equations as ez
 from vendor.ezas.classes.parameters import Parameters
-from vendor.ezas.utils.linear_algebra import linear_prediction, linear_regression
+from vendor.ezas.utils.linear_algebra import linear_prediction
+from vendor.ezas.utils.linear_algebra import linear_regression_lstsq as linear_regression
 
 _LOWER_QUANTILE = 0.025
 _UPPER_QUANTILE = 0.975
