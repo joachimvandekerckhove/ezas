@@ -80,7 +80,8 @@ def bayesian_parameter_estimation(observations: Observations,
                           observed=var_rt)
         
         # Run MCMC
-        trace = pm.sample(n_samples, tune=n_tune, return_inferencedata=True)
+        trace = pm.sample(n_samples, tune=n_tune, return_inferencedata=True, 
+                         compute_convergence_checks=False)
                 
         summary = az.summary(trace)
         
@@ -171,7 +172,8 @@ def bayesian_multiple_parameter_estimation(
                           observed=var_rt)
         
         # Run MCMC
-        trace = pm.sample(n_samples, tune=n_tune, return_inferencedata=True, chains=n_chains)
+        trace = pm.sample(n_samples, tune=n_tune, return_inferencedata=True, chains=n_chains,
+                         compute_convergence_checks=False)
         
         print(az.summary(trace))
         

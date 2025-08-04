@@ -156,7 +156,8 @@ def bayesian_design_matrix_parameter_estimation(
                          initvals=init_values,
                          chains=n_chains,
                          progressbar=verbosity > 0,
-                         target_accept=0.95)  # Higher target acceptance rate
+                         target_accept=0.95,
+                         compute_convergence_checks=False)  # Higher target acceptance rate
         
         # Print summary table for only those nodes with weight in their name
         summary = az.summary(trace)
@@ -378,7 +379,8 @@ def bayesian_design_matrix_parameter_estimation_with_hierarchical_structure(
                          tune=n_tune, 
                          return_inferencedata=True, 
                          initvals=init_values,
-                         target_accept=0.95)  # Higher target acceptance rate
+                         target_accept=0.95,
+                         compute_convergence_checks=False)  # Higher target acceptance rate
         
         # Print summary table for only those nodes with weight in their name
         mask = az.summary(trace).index.str.contains('weights')
