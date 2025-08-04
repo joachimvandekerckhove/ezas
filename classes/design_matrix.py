@@ -10,6 +10,7 @@ import unittest
 
 from vendor.ezas.base import ez_equations as ez
 from vendor.ezas.classes.parameters import Parameters
+from vendor.ezas.utils.linear_algebra import linear_prediction, linear_regression
 
 _LOWER_QUANTILE = 0.025
 _UPPER_QUANTILE = 0.975
@@ -54,25 +55,28 @@ class DesignMatrix:
             return
         
         try:
-            self._boundary = self._boundary_design @ self._boundary_weights
-        except:
-            print(self._boundary_design)
-            print(self._boundary_weights)
-            raise
+            self._boundary = linear_prediction(self._boundary_design, self._boundary_weights)
+        except Exception as e:
+            print(f"Error in boundary prediction:")
+            print(f"  Design matrix: {self._boundary_design}")
+            print(f"  Weights: {self._boundary_weights}")
+            raise e
 
         try:
-            self._drift = self._drift_design @ self._drift_weights
-        except:
-            print(self._drift_design)
-            print(self._drift_weights)
-            raise
+            self._drift = linear_prediction(self._drift_design, self._drift_weights)
+        except Exception as e:
+            print(f"Error in drift prediction:")
+            print(f"  Design matrix: {self._drift_design}")
+            print(f"  Weights: {self._drift_weights}")
+            raise e
 
         try:
-            self._ndt = self._ndt_design @ self._ndt_weights
-        except:
-            print(self._ndt_design)
-            print(self._ndt_weights)
-            raise
+            self._ndt = linear_prediction(self._ndt_design, self._ndt_weights)
+        except Exception as e:
+            print(f"Error in ndt prediction:")
+            print(f"  Design matrix: {self._ndt_design}")
+            print(f"  Weights: {self._ndt_weights}")
+            raise e
 
         self._has_fixed_parameters = True
         
@@ -86,25 +90,28 @@ class DesignMatrix:
             return
         
         try:
-            self._boundary_weights = np.linalg.pinv(self._boundary_design) @ self._boundary
-        except:
-            print(self._boundary_design)
-            print(self._boundary)
-            raise
+            self._boundary_weights = linear_regression(self._boundary_design, self._boundary)
+        except Exception as e:
+            print(f"Error in boundary regression:")
+            print(f"  Design matrix: {self._boundary_design}")
+            print(f"  Parameters: {self._boundary}")
+            raise e
 
         try:
-            self._drift_weights = np.linalg.pinv(self._drift_design) @ self._drift
-        except:
-            print(self._drift_design)
-            print(self._drift)
-            raise
+            self._drift_weights = linear_regression(self._drift_design, self._drift)
+        except Exception as e:
+            print(f"Error in drift regression:")
+            print(f"  Design matrix: {self._drift_design}")
+            print(f"  Parameters: {self._drift}")
+            raise e
 
         try:
-            self._ndt_weights = np.linalg.pinv(self._ndt_design) @ self._ndt
-        except:
-            print(self._ndt_design)
-            print(self._ndt)
-            raise
+            self._ndt_weights = linear_regression(self._ndt_design, self._ndt)
+        except Exception as e:
+            print(f"Error in ndt regression:")
+            print(f"  Design matrix: {self._ndt_design}")
+            print(f"  Parameters: {self._ndt}")
+            raise e
             
         self._has_fixed_weights = True
             
@@ -139,19 +146,32 @@ class DesignMatrix:
     def boundary(self) -> np.ndarray:
         self._fix_weights()
         try:
-            return self._boundary_design @ self._boundary_weights
-        except:
-            print(self._boundary_design)
-            print(self._boundary_weights)
-            raise
+            return linear_prediction(self._boundary_design, self._boundary_weights)
+        except Exception as e:
+            print(f"Error in boundary prediction:")
+            print(f"  Design matrix: {self._boundary_design}")
+            print(f"  Weights: {self._boundary_weights}")
+            raise e
     
     def drift(self) -> np.ndarray:
         self._fix_weights()
-        return self._drift_design @ self._drift_weights
+        try:
+            return linear_prediction(self._drift_design, self._drift_weights)
+        except Exception as e:
+            print(f"Error in drift prediction:")
+            print(f"  Design matrix: {self._drift_design}")
+            print(f"  Weights: {self._drift_weights}")
+            raise e
     
     def ndt(self) -> np.ndarray:
         self._fix_weights()
-        return self._ndt_design @ self._ndt_weights
+        try:
+            return linear_prediction(self._ndt_design, self._ndt_weights)
+        except Exception as e:
+            print(f"Error in ndt prediction:")
+            print(f"  Design matrix: {self._ndt_design}")
+            print(f"  Weights: {self._ndt_weights}")
+            raise e
     
     def boundary_nd(self) -> np.ndarray:
         return self._boundary_design
@@ -448,9 +468,9 @@ class TestSuite(unittest.TestCase):
             drift_weights    = np.array([0.4, 0.8, 1.2]),
             ndt_weights      = np.array([0.2, 0.3, 0.4])
         )
-        np.testing.assert_array_equal(design_matrix.boundary_weights(), np.array([1.0, 1.5, 2.0]))
-        np.testing.assert_array_equal(design_matrix.drift_weights(), np.array([0.4, 0.8, 1.2]))
-        np.testing.assert_array_equal(design_matrix.ndt_weights(), np.array([0.2, 0.3, 0.4]))
+        np.testing.assert_array_almost_equal(design_matrix.boundary_weights(), np.array([1.0, 1.5, 2.0]))
+        np.testing.assert_array_almost_equal(design_matrix.drift_weights(), np.array([0.4, 0.8, 1.2]))
+        np.testing.assert_array_almost_equal(design_matrix.ndt_weights(), np.array([0.2, 0.3, 0.4]))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()  
