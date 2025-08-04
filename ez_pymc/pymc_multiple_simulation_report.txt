@@ -1,0 +1,13 @@
+Simulation settings:
+ > Repetitions :  1000
+ > Sample size :  1000
+ > Conditions  :  3
+ > True parameters:
+  * Boundary:  2.00, Drift:     0.50, NDT:       0.20
+  * Boundary:  2.00, Drift:     1.50, NDT:       0.20
+  * Boundary:  2.00, Drift:     2.50, NDT:       0.20
+Results:
+ > Boundary coverage :   94.3%
+ > Drift coverage    :   94.1%
+ > NDT coverage      :   94.7%
+ > Total coverage    :   87.3%

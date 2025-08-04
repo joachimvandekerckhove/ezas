@@ -142,8 +142,8 @@ def bayesian_parameter_estimation(observations: Observations,
             ndt_upper_bound=float(ndt_q975)
         )
 
-def demo(true_parameters: Parameters|None = None,
-         sample_size: int|None = None):
+def demo(true_parameters: Parameters = _DEMO_DEFAULT_PARAMETERS,
+         sample_size: int = _DEMO_DEFAULT_SAMPLE_SIZE):
     """
     Demo function for the Bayesian parameter estimation.
     
@@ -154,12 +154,6 @@ def demo(true_parameters: Parameters|None = None,
     Returns:
         None
     """
-    
-    if true_parameters is None:
-        true_parameters = _DEMO_DEFAULT_PARAMETERS
-    
-    if sample_size is None:
-        sample_size = 100
     
     if not isinstance(true_parameters, Parameters):
         raise TypeError("true_parameters must be an instance of Parameters")
@@ -198,22 +192,22 @@ def demo(true_parameters: Parameters|None = None,
 """
 Simulation
 """
-def simulation(simulation_repetitions: int|None = None):
+def simulation(repetitions: int|None = None):
     """
     Run a comprehensive demonstration of Bayesian parameter recovery accuracy.
     """
     
-    if simulation_repetitions is None:
-        simulation_repetitions = 100
+    if repetitions is None:
+        repetitions = 100
 
-    if not isinstance(simulation_repetitions, int):
+    if not isinstance(repetitions, int):
         raise TypeError("simulation_repetitions must be of type int")
     
     true_parameters = _DEMO_DEFAULT_PARAMETERS
     sample_size = _DEMO_DEFAULT_SAMPLE_SIZE
             
     # Initialize a progress bar
-    progress_bar = tqdm(total=simulation_repetitions, 
+    progress_bar = tqdm(total=repetitions, 
                         desc="Simulation progress")
 
     boundary_coverage = 0
@@ -221,7 +215,7 @@ def simulation(simulation_repetitions: int|None = None):
     ndt_coverage = 0
     total_coverage = 0
         
-    for _ in range(simulation_repetitions):
+    for _ in range(repetitions):
         moments = ez.forward(true_parameters)
         observations = moments.sample(sample_size=sample_size)
         estimate = bayesian_parameter_estimation(observations)
@@ -244,10 +238,10 @@ def simulation(simulation_repetitions: int|None = None):
     # Close the progress bar
     progress_bar.close()
     
-    boundary_coverage *= 100 / simulation_repetitions
-    drift_coverage *= 100 / simulation_repetitions
-    ndt_coverage *= 100 / simulation_repetitions
-    total_coverage *= 100 / simulation_repetitions
+    boundary_coverage *= 100 / repetitions
+    drift_coverage *= 100 / repetitions
+    ndt_coverage *= 100 / repetitions
+    total_coverage *= 100 / repetitions
     
     print("Coverage:")
     print(f" > Boundary: {boundary_coverage:.1f}%  (should be ≈ 95%)")
@@ -301,21 +295,39 @@ class TestSuite(unittest.TestCase):
         self.assertIn("Sample size: 2000", sys.stdout.getvalue())
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser()
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("--test", action="store_true", help="Run the test suite")
+#     parser.add_argument("--demo", action="store_true", help="Run the demo")
+#     parser.add_argument("--simulation", action="store_true", help="Run the simulation")
+#     parser.add_argument("--iterations", type=int, default=100, help="Number of iterations for the simulation")
+#     args = parser.parse_args()
+    
+#     if args.test:
+#         unittest.main(argv=[__file__], verbosity=0, failfast=True)
+
+#     if args.demo:
+#         demo()
+        
+#     if args.simulation:
+#         simulation(args.iterations)
+    
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Bayesian Parameter Estimation")
     parser.add_argument("--test", action="store_true", help="Run the test suite")
     parser.add_argument("--demo", action="store_true", help="Run the demo")
-    parser.add_argument("--simulation", action="store_true", help="Run the simulation")
-    parser.add_argument("--iterations", type=int, default=100, help="Number of iterations for the simulation")
+    parser.add_argument("--simulation", action="store_true", help="Run the simulation study")
+    parser.add_argument("--repetitions", type=int, default=1000, help="Number of repetitions for the simulation study")
     args = parser.parse_args()
     
     if args.test:
-        unittest.main(argv=[__file__], verbosity=0, failfast=True)
-
+        unittest.main(argv=['first-arg-is-ignored'], exit=False)
+        sys.exit(0)
+    
     if args.demo:
         demo()
-        
-    if args.simulation:
-        simulation(args.iterations)
-    
+    elif args.simulation:
+        simulation(repetitions=args.repetitions)
+    else:
+        print("Use --demo for basic demonstration or --simulation for simulation study") 

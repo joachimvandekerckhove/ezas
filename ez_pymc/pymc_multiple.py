@@ -2,7 +2,8 @@
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+
 
 import numpy as np
 from typing import Tuple, List
@@ -13,8 +14,20 @@ import arviz as az
 from vendor.ezas.base import ez_equations as ez
 from vendor.ezas.classes.moments import Observations
 from vendor.ezas.classes.parameters import Parameters
+from tqdm import tqdm
+from vendor.ezas.utils import b as pretty
 
-MAX_R_HAT = 1.1
+_MAX_R_HAT = 1.1
+
+_DEMO_DEFAULT_PARAMETERS = [
+    Parameters(
+        boundary=2.0,
+        drift=d,
+        ndt=0.2
+    ) for d in [0.5, 1.5, 2.5]
+]
+
+_DEMO_DEFAULT_SAMPLE_SIZE = 1000
 
 
 def bayesian_multiple_parameter_estimation(
@@ -98,10 +111,10 @@ def bayesian_multiple_parameter_estimation(
         if verbosity >= 1:
             # Check convergence
             max_rhat = np.max(rhats)
-            if max_rhat > MAX_R_HAT:
-                print(f"Warning: Maximum Rhat is {max_rhat}, which is greater than {MAX_R_HAT}.")
+            if max_rhat > _MAX_R_HAT:
+                print(f"Warning: Maximum Rhat is {max_rhat}, which is greater than {_MAX_R_HAT}.")
             else:
-                print(f"Maximum Rhat is {max_rhat}, which is less than {MAX_R_HAT}.")
+                print(f"Maximum Rhat is {max_rhat}, which is less than {_MAX_R_HAT}.")
         
         # Get posterior means
         post_mean = summary['mean']
@@ -137,6 +150,79 @@ def bayesian_multiple_parameter_estimation(
             ndt_upper_bound=float(ndt_q975[i])
         ) for i in range(n_conditions)]
 
+
+"""
+Simulation
+"""
+def simulation(repetitions: int|None = None):
+    """
+    Run a comprehensive demonstration of Bayesian parameter recovery accuracy.
+    """
+    
+    if repetitions is None:
+        repetitions = 100
+
+    if not isinstance(repetitions, int):
+        raise TypeError("repetitions must be of type int")
+
+    true_parameters = _DEMO_DEFAULT_PARAMETERS
+    sample_size = _DEMO_DEFAULT_SAMPLE_SIZE
+    n_conditions = len(true_parameters)
+
+    # Initialize a progress bar
+    progress_bar = tqdm(total=repetitions, 
+                        desc="Simulation progress")
+
+    boundary_coverage = 0
+    drift_coverage = 0
+    ndt_coverage = 0
+    total_coverage = 0
+
+    for _ in range(repetitions):
+        moments = ez.forward(true_parameters)
+        observations = [m.sample(sample_size=sample_size) for m in moments]
+        estimated_parameters = bayesian_multiple_parameter_estimation(observations)
+
+        for i, p in enumerate(true_parameters):
+            boundary_in_bounds, drift_in_bounds, ndt_in_bounds = p.is_within_bounds_of(estimated_parameters[i])
+            boundary_coverage += boundary_in_bounds
+            drift_coverage    += drift_in_bounds
+            ndt_coverage      += ndt_in_bounds
+            total_coverage    += boundary_in_bounds and drift_in_bounds and ndt_in_bounds
+
+        progress_bar.update(1)
+
+    progress_bar.close()
+
+    boundary_coverage *= (100 / (repetitions * n_conditions))
+    drift_coverage    *= (100 / (repetitions * n_conditions))
+    ndt_coverage      *= (100 / (repetitions * n_conditions))
+    total_coverage    *= (100 / (repetitions * n_conditions))
+
+    print("Coverage:")
+    print(f" > Boundary : {boundary_coverage:5.1f}%  (should be ≈ 95%)")
+    print(f" > Drift    : {drift_coverage:5.1f}%  (should be ≈ 95%)")
+    print(f" > NDT      : {ndt_coverage:5.1f}%  (should be ≈ 95%)")
+    print(f" > Total    : {total_coverage:5.1f}%  (should be ≈ {100*(.95**3):.1f}%)")
+
+    # Print brief report to file, with simulation settings and results
+    with open("bayes_multiple_simulation_report.txt", "w") as f:
+        f.write(f"Simulation settings:\n")
+        f.write(f" > Repetitions :  {repetitions}\n")
+        f.write(f" > Sample size :  {sample_size}\n")
+        f.write(f" > Conditions  :  {n_conditions}\n")
+        f.write(f" > True parameters:\n")
+        [f.write(f"  * {str(p)}\n") for p in true_parameters]
+        f.write(f"Results:\n")
+        f.write(f" > Boundary coverage :  {boundary_coverage:5.1f}%\n")
+        f.write(f" > Drift coverage    :  {drift_coverage:5.1f}%\n")
+        f.write(f" > NDT coverage      :  {ndt_coverage:5.1f}%\n")
+        f.write(f" > Total coverage    :  {total_coverage:5.1f}%\n")
+
+
+"""
+Demo
+"""
 def demo():
 
     # Set some parameters
@@ -154,7 +240,7 @@ def demo():
     [print(p) for p in parameters]
     
     # Compute the moments
-    moments = [p.to_moments() for p in parameters]
+    moments = [ez.forward(p) for p in parameters]
     print("True moments:")
     [print(m) for m in moments]
     
@@ -171,10 +257,10 @@ def demo():
     
     # Check if the true parameters are in the bounds of the estimated parameters and print colorful emoji checkmark or X
     for i, p in enumerate(parameters):
-        boundary_in_bounds, drift_in_bounds, ndt_in_bounds = p.is_in_bounds(estimated_parameters[i])
-        print(f"Boundary {i} in bounds : {'✅' if boundary_in_bounds else '❌'}")
-        print(f"Drift {i} in bounds    : {'✅' if drift_in_bounds else '❌'}")
-        print(f"NDT {i} in bounds      : {'✅' if ndt_in_bounds else '❌'}")
+        boundary_in_bounds, drift_in_bounds, ndt_in_bounds = p.is_within_bounds_of(estimated_parameters[i])
+        print(f"Boundary {i} in bounds : {pretty(boundary_in_bounds)}")
+        print(f"Drift {i} in bounds    : {pretty(drift_in_bounds)}")
+        print(f"NDT {i} in bounds      : {pretty(ndt_in_bounds)}")
 
 """
 Test suite
@@ -183,16 +269,24 @@ class TestSuite(unittest.TestCase):
     def test_bayesian_multiple_parameter_estimation(self):
         demo()
 
-
+"""
+Main
+"""
 if __name__ == "__main__":
-    
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Bayesian Multiple Parameter Estimation")
     parser.add_argument("--test", action="store_true", help="Run the test suite")
     parser.add_argument("--demo", action="store_true", help="Run the demo")
+    parser.add_argument("--simulation", action="store_true", help="Run the simulation study")
+    parser.add_argument("--repetitions", type=int, default=1000, help="Number of repetitions for the simulation study")
     args = parser.parse_args()
     
     if args.test:
-        unittest.main(argv=[__file__], verbosity=0, failfast=True)
-
-    if args.demo or len(sys.argv) == 1:
+        unittest.main(argv=['first-arg-is-ignored'], exit=False)
+        sys.exit(0)
+    
+    if args.demo:
         demo()
+    elif args.simulation:
+        simulation(repetitions=args.repetitions)
+    else:
+        print("Use --demo for basic demonstration or --simulation for simulation study") 
