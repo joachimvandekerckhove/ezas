@@ -16,32 +16,162 @@ class Parameters:
     def __init__(self, 
                  boundary: float, 
                  drift: float, 
-                 ndt: float):
+                 ndt: float,
+                 boundary_sd: float = None,
+                 drift_sd: float = None,
+                 ndt_sd: float = None,
+                 boundary_lower_bound: float = None,
+                 boundary_upper_bound: float = None,
+                 drift_lower_bound: float = None,
+                 drift_upper_bound: float = None,
+                 ndt_lower_bound: float = None,
+                 ndt_upper_bound: float = None):
         if not isinstance(boundary, (int, float)):
             raise TypeError("Boundary must be a number.")
         if not isinstance(drift, (int, float)):
             raise TypeError("Drift must be a number.")
         if not isinstance(ndt, (int, float)):
             raise TypeError("NDT must be a number.")
-
-        self.boundary = boundary
-        self.drift = drift
-        self.ndt = ndt
         
+        if boundary_sd is not None:
+            if not isinstance(boundary_sd, (int, float)):
+                raise TypeError("Boundary SD must be a number.")
+        if drift_sd is not None:
+            if not isinstance(drift_sd, (int, float)):
+                raise TypeError("Drift SD must be a number.")
+        if ndt_sd is not None:
+            if not isinstance(ndt_sd, (int, float)):
+                raise TypeError("NDT SD must be a number.")
+        
+        if boundary_lower_bound is not None:
+            if not isinstance(boundary_lower_bound, (int, float)):
+                raise TypeError("Boundary lower bound must be a number.")
+        if boundary_upper_bound is not None:
+            if not isinstance(boundary_upper_bound, (int, float)):
+                raise TypeError("Boundary upper bound must be a number.")
+        if drift_lower_bound is not None:
+            if not isinstance(drift_lower_bound, (int, float)):
+                raise TypeError("Drift lower bound must be a number.")
+        if drift_upper_bound is not None:
+            if not isinstance(drift_upper_bound, (int, float)):
+                raise TypeError("Drift upper bound must be a number.")
+        if ndt_lower_bound is not None:
+            if not isinstance(ndt_lower_bound, (int, float)):
+                raise TypeError("NDT lower bound must be a number.")
+        if ndt_upper_bound is not None:
+            if not isinstance(ndt_upper_bound, (int, float)):
+                raise TypeError("NDT upper bound must be a number.")
+        
+        self._boundary = boundary
+        self._drift = drift
+        self._ndt = ndt
+        
+        self._boundary_sd = boundary_sd
+        self._drift_sd = drift_sd
+        self._ndt_sd = ndt_sd
+        
+        self._boundary_lower_bound = boundary_lower_bound
+        self._boundary_upper_bound = boundary_upper_bound
+        self._drift_lower_bound = drift_lower_bound
+        self._drift_upper_bound = drift_upper_bound
+        self._ndt_lower_bound = ndt_lower_bound
+        self._ndt_upper_bound = ndt_upper_bound
+        
+    def boundary(self):
+        return self._boundary
+    
+    def drift(self):
+        return self._drift
+    
+    def ndt(self):
+        return self._ndt
+    
+    def boundary_sd(self):
+        return self._boundary_sd
+    
+    def drift_sd(self):
+        return self._drift_sd
+    
+    def ndt_sd(self):
+        return self._ndt_sd
+    
+    def boundary_lower_bound(self):
+        return self._boundary_lower_bound
+    
+    def boundary_upper_bound(self):
+        return self._boundary_upper_bound
+    
+    def drift_lower_bound(self):
+        return self._drift_lower_bound
+    
+    def drift_upper_bound(self):
+        return self._drift_upper_bound
+    
+    def ndt_lower_bound(self):
+        return self._ndt_lower_bound
+    
+    def ndt_upper_bound(self):
+        return self._ndt_upper_bound
+    
+    def has_sd(self):
+        return self._boundary_sd is not None or \
+               self._drift_sd is not None or \
+               self._ndt_sd is not None
+    
+    def has_bounds(self):
+        return self._boundary_lower_bound is not None or \
+               self._boundary_upper_bound is not None or \
+               self._drift_lower_bound is not None or \
+               self._drift_upper_bound is not None or \
+               self._ndt_lower_bound is not None or \
+               self._ndt_upper_bound is not None
+    
+    def is_in_bounds(self, other) -> tuple[bool, bool, bool]:
+        if not isinstance(other, Parameters):
+            raise TypeError("other must be an instance of Parameters")
+        if not other.has_bounds():
+            raise ValueError("other must have bounds")
+        
+        boundary_in_bounds = self.boundary() >= other.boundary_lower_bound() and \
+                             self.boundary() <= other.boundary_upper_bound()
+        drift_in_bounds = self.drift() >= other.drift_lower_bound() and \
+                          self.drift() <= other.drift_upper_bound()
+        ndt_in_bounds = self.ndt() >= other.ndt_lower_bound() and \
+                        self.ndt() <= other.ndt_upper_bound()
+        
+        return (boundary_in_bounds, drift_in_bounds, ndt_in_bounds)
+    
+    def to_moments(self) -> 'Moments':
+        return forward_equations(self)
+    
+    def to_observations(self, sample_size: int) -> 'Observations':
+        return self.to_moments().sample(sample_size)
+    
     def array(self):
-        return np.array([self.boundary, self.drift, self.ndt])
+        return np.array([self._boundary, self._drift, self._ndt])
         
     def __sub__(self, other):
         if not isinstance(other, Parameters):
             raise TypeError("other must be an instance of Parameters")
-        return Parameters(self.boundary - other.boundary,
-                          self.drift - other.drift, 
-                          self.ndt - other.ndt)
+        if self.has_sd() or other.has_sd() or self.has_bounds() or other.has_bounds():
+            raise ValueError("Subtraction of Parameters with SDs is not supported")
+        return Parameters(self._boundary - other._boundary,
+                          self._drift - other._drift, 
+                          self._ndt - other._ndt)
 
     def __str__(self):
-        return f"{'Boundary:':10s}{self.boundary:5.2f}, " + \
-               f"{'Drift:':10s}{self.drift:5.2f}, " + \
-               f"{'NDT:':10s}{self.ndt:5.2f}"
+        if self.has_bounds():
+            return f"{'Boundary:':10s}{self._boundary:5.2f} in [{self._boundary_lower_bound:5.2f}, {self._boundary_upper_bound:5.2f}], " + \
+                   f"{'Drift:':10s}{self._drift:5.2f} in [{self._drift_lower_bound:5.2f}, {self._drift_upper_bound:5.2f}], " + \
+                   f"{'NDT:':10s}{self._ndt:5.2f} in [{self._ndt_lower_bound:5.2f}, {self._ndt_upper_bound:5.2f}]"
+        elif self.has_sd():
+            return f"{'Boundary:':10s}{self._boundary:5.2f} +/- {self._boundary_sd:5.2f}, " + \
+                   f"{'Drift:':10s}{self._drift:5.2f} +/- {self._drift_sd:5.2f}, " + \
+                   f"{'NDT:':10s}{self._ndt:5.2f} +/- {self._ndt_sd:5.2f}"
+        else:
+            return f"{'Boundary:':10s}{self._boundary:5.2f}, " + \
+                   f"{'Drift:':10s}{self._drift:5.2f}, " + \
+                   f"{'NDT:':10s}{self._ndt:5.2f}"
 
     # Mean of an array of Parameter objects
     @staticmethod
@@ -89,9 +219,9 @@ class Parameters:
         )
 
 """
-SummaryStats class
+Moments class
 """
-class SummaryStats:
+class Moments:
     """Summary statistics from behavioral data"""
     def __init__(self, 
                  accuracy: float,
@@ -111,7 +241,13 @@ class SummaryStats:
     def to_observations(self, sample_size: int) -> 'Observations':
         return Observations(self.accuracy, self.mean_rt, self.var_rt, sample_size)
     
-    def sample(self, sample_size: int, rng = np.random) -> 'Observations':
+    def sample(self, sample_size: int, rng = np.random.default_rng()) -> 'Observations':
+        if not isinstance(sample_size, int):
+            raise TypeError("sample_size must be an integer")
+        if sample_size <= 0:
+            raise ValueError("sample_size must be greater than 0")  
+        if not isinstance(rng, np.random.Generator):
+            raise TypeError(f"rng must be an instance of np.random.Generator, was {type(rng)} with value {rng}")
         return Observations(
             accuracy = rng.binomial(sample_size, self.accuracy),
             mean_rt = rng.normal(self.mean_rt, np.sqrt(self.var_rt/sample_size)),
@@ -120,9 +256,9 @@ class SummaryStats:
         )
     
     def __sub__(self, other):
-        if not isinstance(other, SummaryStats):
-            raise TypeError("other must be an instance of SummaryStats")
-        return SummaryStats(self.accuracy - other.accuracy, 
+        if not isinstance(other, Moments):
+            raise TypeError("other must be an instance of Moments")
+        return Moments(self.accuracy - other.accuracy, 
                             self.mean_rt - other.mean_rt, 
                             self.var_rt - other.var_rt)
 
@@ -151,56 +287,67 @@ class Observations:
         if not isinstance(sample_size, int):
             raise TypeError("Sample size must be an integer.")
 
-        self._summary_stats = SummaryStats(accuracy/sample_size, mean_rt, var_rt)
+        self._moments = Moments(accuracy/sample_size, mean_rt, var_rt)
         self._sample_size = sample_size
         
     def accuracy(self) -> int:
-        return round(self._summary_stats.accuracy * self._sample_size)
+        return round(self._moments.accuracy * self._sample_size)
     
     def mean_rt(self) -> float:
-        return self._summary_stats.mean_rt
+        return self._moments.mean_rt
     
     def var_rt(self) -> float:
-        return self._summary_stats.var_rt
+        return self._moments.var_rt
     
     def sample_size(self) -> int:
         return self._sample_size
     
-    def to_summary_stats(self) -> SummaryStats:
-        return self._summary_stats
+    def to_moments(self) -> Moments:
+        return self._moments
+    
+    def resample(self, sample_size: int | None = None, rng = np.random.default_rng()) -> 'Observations':
+        if sample_size is not None:
+            if not isinstance(sample_size, int):
+                raise TypeError("sample_size must be an integer")
+            if sample_size <= 0:
+                raise ValueError("sample_size must be greater than 0")
+        else:
+            sample_size = self.sample_size()
+
+        return self._moments.sample(sample_size, rng)
     
     def __str__(self):
-        return f"{'Accuracy:':10s}{self.accuracy()}, " + \
+        return f"{'Accuracy:':10s}{self.accuracy():5d}, " + \
                f"{'Mean RT:':10s}{self.mean_rt():5.2f}, " + \
                f"{'Var RT:':10s}{self.var_rt():5.2f}, " + \
-               f"{'Sample size:':10s}{self.sample_size()}"
+               f"{'Sample size:':10s}{self.sample_size():5d}"
     
-"""
-Resample summary statistics
-"""
-def resample_summary_stats(
-    summary_stats: SummaryStats | list[SummaryStats], 
-    sample_sizes: int | list[int], 
-    rng = np.random) -> Observations | list[Observations]:
+# """
+# Resample summary statistics
+# """
+# def resample_summary_stats(
+#     summary_stats: SummaryStats | list[SummaryStats], 
+#     sample_sizes: int | list[int], 
+#     rng = np.random) -> Observations | list[Observations]:
     
-    if isinstance(summary_stats, SummaryStats) and \
-        isinstance(sample_sizes, int):
-        return summary_stats.sample(sample_sizes, rng)
+#     if isinstance(summary_stats, SummaryStats) and \
+#         isinstance(sample_sizes, int):
+#         return summary_stats.sample(sample_sizes, rng)
                 
-    if isinstance(summary_stats, list) and \
-        all(isinstance(x, SummaryStats) for x in summary_stats) and \
-        isinstance(sample_sizes, list) and \
-        all(isinstance(x, int) for x in sample_sizes):
-        return [s.sample(N, rng) for s, N in zip(summary_stats, sample_sizes)]
+#     if isinstance(summary_stats, list) and \
+#         all(isinstance(x, SummaryStats) for x in summary_stats) and \
+#         isinstance(sample_sizes, list) and \
+#         all(isinstance(x, int) for x in sample_sizes):
+#         return [s.sample(N, rng) for s, N in zip(summary_stats, sample_sizes)]
     
-    raise TypeError("summary_stats must be a SummaryStats instance or a list of SummaryStats and sample_sizes must be an integer or a list of integers")
+#     raise TypeError("summary_stats must be a SummaryStats instance or a list of SummaryStats and sample_sizes must be an integer or a list of integers")
     
 
 
 """
 Forward equations
 """
-def forward_equations(params: Parameters | list[Parameters]) -> SummaryStats | list[SummaryStats]:
+def forward_equations(params: Parameters | list[Parameters]) -> Moments | list[Moments]:
     if not (isinstance(params, Parameters) or (isinstance(params, list) and all(isinstance(x, Parameters) for x in params))):
         raise TypeError("params must be a Parameters instance or a list of Parameters")
     if isinstance(params, Parameters):
@@ -208,51 +355,51 @@ def forward_equations(params: Parameters | list[Parameters]) -> SummaryStats | l
     if isinstance(params, list):
         return [_forward_equations_single(x) for x in params]
     
-def _forward_equations_single(params: Parameters) -> SummaryStats:
+def _forward_equations_single(params: Parameters) -> Moments:
     """Calculate predicted summary statistics from parameters"""
-    if params.boundary <= 0:
+    if params.boundary() <= 0:
         raise ValueError("Boundary must be strictly positive.")
     
-    if params.drift == 0:
+    if params.drift() == 0:
         # Special case for drift = 0
-        return SummaryStats(0.5, params.ndt + params.boundary, params.boundary)
+        return Moments(0.5, params.ndt() + params.boundary(), params.boundary())
     
     # Helper calculation
-    y = np.exp(-params.boundary * params.drift)
+    y = np.exp(-params.boundary() * params.drift())
     
     # Calculate predicted statistics
     pred_acc = 1 / (y + 1)
     
-    pred_mean = (params.ndt + 
-                (params.boundary / (2 * params.drift)) * 
+    pred_mean = (params.ndt() + 
+                (params.boundary() / (2 * params.drift())) * 
                 ((1 - y) / (1 + y)))
     
-    pred_var = ((params.boundary / (2 * params.drift**3)) * 
-                ((1 - 2*params.boundary*params.drift*y - y**2) / 
+    pred_var = ((params.boundary() / (2 * params.drift()**3)) * 
+                ((1 - 2*params.boundary()*params.drift()*y - y**2) / 
                  ((y + 1)**2)))
     
-    return SummaryStats(pred_acc, pred_mean, pred_var)
+    return Moments(pred_acc, pred_mean, pred_var)
     
 
 
 """
 Inverse equations
 """
-def inverse_equations(obs_stats: SummaryStats | list[SummaryStats] | Observations | list[Observations]) -> Parameters | list[Parameters]:
+def inverse_equations(obs_stats: Moments | list[Moments] | Observations | list[Observations]) -> Parameters | list[Parameters]:
     """Estimate parameters from observed summary statistics"""
     if isinstance(obs_stats, Observations):
-        obs_stats = obs_stats.to_summary_stats()
+        obs_stats = obs_stats.to_moments()
     if isinstance(obs_stats, list) and all(isinstance(x, Observations) for x in obs_stats):
-        obs_stats = [s.to_summary_stats() for s in obs_stats]
-    if not (isinstance(obs_stats, SummaryStats) or (isinstance(obs_stats, list) and all(isinstance(x, SummaryStats) for x in obs_stats))):
-        raise TypeError("obs_stats must be a SummaryStats instance or a list of SummaryStats or a Observations instance or a list of Observations")
+        obs_stats = [s.to_moments() for s in obs_stats]
+    if not (isinstance(obs_stats, Moments) or (isinstance(obs_stats, list) and all(isinstance(x, Moments) for x in obs_stats))):
+        raise TypeError("obs_stats must be a Moments instance or a list of Moments or a Observations instance or a list of Observations")
     
-    if isinstance(obs_stats, SummaryStats):
+    if isinstance(obs_stats, Moments):
         return _inverse_equations_single(obs_stats)
     if isinstance(obs_stats, list):
         return [_inverse_equations_single(x) for x in obs_stats]
     
-def _inverse_equations_single(obs_stats: SummaryStats) -> Parameters:
+def _inverse_equations_single(obs_stats: Moments) -> Parameters:
     # Helper calculations
     if obs_stats.accuracy == 0 or obs_stats.accuracy == 1:
         return Parameters(0, 0, 0)
@@ -326,9 +473,9 @@ class TestSuite(unittest.TestCase):
         self.assertEqual(params.drift, 1.0)
         self.assertEqual(params.ndt, 0.0)
     
-    def test_create_summary_stats(self):
-        stats = SummaryStats(0.66, 0.33, 0.05)
-        self.assertIsInstance(stats, SummaryStats)
+    def test_create_moments(self):
+        stats = Moments(0.66, 0.33, 0.05)
+        self.assertIsInstance(stats, Moments)
         self.assertEqual(stats.accuracy, 0.66)
         self.assertEqual(stats.mean_rt, 0.33)
         self.assertEqual(stats.var_rt, 0.05)
@@ -336,16 +483,16 @@ class TestSuite(unittest.TestCase):
     def test_forward_equations(self):
         true_params = Parameters(1.0, 0.5, 0.2)
         pred_stats = forward_equations(true_params)
-        self.assertIsInstance(pred_stats, SummaryStats)
+        self.assertIsInstance(pred_stats, Moments)
         self.assertGreater(pred_stats.accuracy, 0.5)
         
         true_params = Parameters(1.0, -0.5, 0.2)
         pred_stats = forward_equations(true_params)
-        self.assertIsInstance(pred_stats, SummaryStats)
+        self.assertIsInstance(pred_stats, Moments)
         self.assertLess(pred_stats.accuracy, 0.5)
 
     def test_inverse_equations(self):
-        obs_stats = SummaryStats(0.66, 0.33, 0.05)
+        obs_stats = Moments(0.66, 0.33, 0.05)
         est_params = inverse_equations(obs_stats)
         self.assertIsInstance(est_params, Parameters)
     
@@ -356,15 +503,15 @@ class TestSuite(unittest.TestCase):
         self.assertRaises(TypeError, Parameters, "a", "b", "c" )
         self.assertRaises(TypeError, Parameters, [.2, .2, .2])
         
-    def test_create_summary_stats_input_validation(self):
-        self.assertRaises(TypeError, SummaryStats, None, .2, .2)
-        self.assertRaises(TypeError, SummaryStats, .2, None, .2)
-        self.assertRaises(TypeError, SummaryStats, .2, .2, None)
-        self.assertRaises(TypeError, SummaryStats, "a", "b", "c" )
-        self.assertRaises(TypeError, SummaryStats, [.2, .2, .2])
+    def test_create_moments_input_validation(self):
+        self.assertRaises(TypeError, Moments, None, .2, .2)
+        self.assertRaises(TypeError, Moments, .2, None, .2)
+        self.assertRaises(TypeError, Moments, .2, .2, None)
+        self.assertRaises(TypeError, Moments, "a", "b", "c" )
+        self.assertRaises(TypeError, Moments, [.2, .2, .2])
     
     def test_forward_equations_input_validation(self):
-        self.assertRaises(TypeError, forward_equations, SummaryStats(0.66, 0.33, 0.05))
+        self.assertRaises(TypeError, forward_equations, Moments(0.66, 0.33, 0.05))
         self.assertRaises(TypeError, forward_equations, None)
         self.assertRaises(TypeError, forward_equations, 1)
         self.assertRaises(TypeError, forward_equations, "string")
@@ -378,7 +525,7 @@ class TestSuite(unittest.TestCase):
         ndt = 0.1
         true_params = Parameters(boundary, drift, ndt)
         pred_stats = forward_equations(true_params)
-        self.assertIsInstance(pred_stats, SummaryStats)
+        self.assertIsInstance(pred_stats, Moments)
         self.assertEqual(pred_stats.accuracy, 0.5)
         self.assertEqual(pred_stats.mean_rt, ndt + boundary)
         self.assertEqual(pred_stats.var_rt, boundary)
@@ -410,13 +557,13 @@ class TestSuite(unittest.TestCase):
         self.assertLess(difference.drift, 1e-6)
         self.assertLess(difference.ndt, 1e-6)
 
-    def test_resample_summary_stats(self):
+    def test_resample_moments(self):
         accuracy = 8
         mean_rt = 0.33
         var_rt = 0.05
         sample_size = 10
-        pred_stats = SummaryStats(accuracy/sample_size, mean_rt, var_rt)
-        obs_stats = resample_summary_stats(pred_stats, sample_size)
+        pred_stats = Moments(accuracy/sample_size, mean_rt, var_rt)
+        obs_stats = pred_stats.sample(sample_size)
         self.assertIsInstance(obs_stats, Observations)
         self.assertEqual(obs_stats.sample_size(), sample_size)
                 
@@ -508,7 +655,7 @@ def demo():
     print(pred_stats)
     
     print(" > Resample statistics", end="\t> ")
-    obs_stats = resample_summary_stats(pred_stats, 100)
+    obs_stats = pred_stats.sample(100)
     print(obs_stats)
     
     print(" > Inverse equations", end="\t> ")
@@ -530,8 +677,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.test:
-        print("Running test suite...")
         unittest.main(argv=[__file__], verbosity=0, failfast=True)
     if args.demo:
-        print("Running demo...")
         demo()

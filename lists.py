@@ -1,11 +1,126 @@
 #!/usr/bin/env python3
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 import numpy as np
 import argparse
 import unittest
+from dataclasses import dataclass
+import arviz as az
+import pandas as pd
 
-from base import (Parameters, SummaryStats, 
-                forward_equations, resample_summary_stats, inverse_equations)
+from vendor.ezas.base import ez_equations as ez
+from vendor.ezas.classes.parameters import Parameters
+    
+"""
+Design list
+A list of design matrices, one for each parameter of the EZ diffusion model.
+"""
+@dataclass
+class DesignList:
+    boundary: np.ndarray
+    drift: np.ndarray
+    ndt: np.ndarray
+
+"""
+Weight list
+A list of weights, one for each parameter of the EZ diffusion model.
+"""
+@dataclass
+class WeightList:
+    boundary: np.ndarray
+    drift: np.ndarray
+    ndt: np.ndarray
+    boundary_sd: np.ndarray = None
+    drift_sd: np.ndarray = None
+    ndt_sd: np.ndarray = None
+    boundary_q025: np.ndarray = None
+    drift_q025: np.ndarray = None
+    ndt_q025: np.ndarray = None
+    boundary_q975: np.ndarray = None
+    drift_q975: np.ndarray = None
+    ndt_q975: np.ndarray = None
+    
+    def has_weights(self) -> bool:
+        return self.boundary is not None and self.drift is not None and self.ndt is not None
+    
+    def has_sd(self) -> bool:
+        return self.boundary_sd is not None and self.drift_sd is not None and self.ndt_sd is not None
+    
+    def has_quantiles(self) -> bool:
+        return self.boundary_q025 is not None and self.drift_q025 is not None and self.ndt_q025 is not None and self.boundary_q975 is not None and self.drift_q975 is not None and self.ndt_q975 is not None
+    
+    def __str__(self):
+        """
+        Print as table with conditional formatting
+        """
+        if self.has_quantiles():
+            return f"{'Boundary:':10s}{self.boundary:5.2f} in [{self.boundary_q025:5.2f}, {self.boundary_q975:5.2f}], " + \
+                   f"{'Drift:':10s}{self.drift:5.2f} in [{self.drift_q025:5.2f}, {self.drift_q975:5.2f}], " + \
+                   f"{'NDT:':10s}{self.ndt:5.2f} in [{self.ndt_q025:5.2f}, {self.ndt_q975:5.2f}]"
+        elif self.has_sd():
+            return f"{'Boundary:':10s}{self.boundary:5.2f} +/- {self.boundary_sd:5.2f}, " + \
+                   f"{'Drift:':10s}{self.drift:5.2f} +/- {self.drift_sd:5.2f}, " + \
+                   f"{'NDT:':10s}{self.ndt:5.2f} +/- {self.ndt_sd:5.2f}"
+        else:
+            return f"{'Boundary:':10s}{self.boundary:5.2f}, " + \
+                   f"{'Drift:':10s}{self.drift:5.2f}, " + \
+                   f"{'NDT:':10s}{self.ndt:5.2f}"
+    
+    @staticmethod
+    def from_trace(trace: az.InferenceData, designList: DesignList) -> 'WeightList':
+        
+        # Print summary table for only those nodes with weight in their name
+        summary = az.summary(trace)
+        mask = summary.index.str.contains('weights')
+        print(summary.loc[mask])
+        
+        post_mn = summary['mean']
+        post_sd = summary['sd']
+        quantiles = trace.posterior.quantile([0.025, 0.975])
+        
+        weightList = WeightList(
+            # means
+            boundary      = np.array([ post_mn[ f'boundary_weights[{i}]' ] for i in range(designList.boundary.shape[1]) ]),
+            drift         = np.array([ post_mn[ f'drift_weights[{i}]'    ] for i in range(designList.drift.shape[1])    ]),
+            ndt           = np.array([ post_mn[ f'ndt_weights[{i}]'      ] for i in range(designList.ndt.shape[1])      ]),
+            # standard deviations
+            boundary_sd   = np.array([ post_sd[ f'boundary_weights[{i}]' ] for i in range(designList.boundary.shape[1]) ]),
+            drift_sd      = np.array([ post_sd[ f'drift_weights[{i}]'    ] for i in range(designList.drift.shape[1])    ]),
+            ndt_sd        = np.array([ post_sd[ f'ndt_weights[{i}]'      ] for i in range(designList.ndt.shape[1])      ]),
+            # quantiles
+            boundary_q025 = quantiles[ 'boundary_weights' ].sel(quantile=0.025).values,
+            drift_q025    = quantiles[ 'drift_weights'    ].sel(quantile=0.025).values,
+            ndt_q025      = quantiles[ 'ndt_weights'      ].sel(quantile=0.025).values,
+            boundary_q975 = quantiles[ 'boundary_weights' ].sel(quantile=0.975).values,
+            drift_q975    = quantiles[ 'drift_weights'    ].sel(quantile=0.975).values,
+            ndt_q975      = quantiles[ 'ndt_weights'      ].sel(quantile=0.975).values)
+        
+        return weightList
+
+"""
+Bigger
+Given a design list and a weight list, return a list of parameters.
+"""
+def bigger(design_list: DesignList, weight_list: WeightList) -> list[Parameters]:
+    boundary = design_list.boundary @ weight_list.boundary
+    drift    = design_list.drift    @ weight_list.drift
+    ndt      = design_list.ndt      @ weight_list.ndt
+    return [Parameters(boundary=b, drift=d, ndt=n) for b, d, n in zip(boundary, drift, ndt)]
+
+"""
+Smaller
+Given a design list and a list of parameters, return a weight list.
+"""
+def smaller(design_list: DesignList, parameters: list[Parameters]) -> WeightList:
+    boundary = [p.boundary for p in parameters]
+    drift    = [p.drift    for p in parameters]
+    ndt      = [p.ndt      for p in parameters]
+    return WeightList(boundary=np.linalg.pinv(design_list.boundary) @ boundary,
+                      drift=np.linalg.pinv(design_list.drift) @ drift,
+                      ndt=np.linalg.pinv(design_list.ndt) @ ndt)
 
 """
 Design matrix class
@@ -149,24 +264,27 @@ class DesignMatrix:
         
         # Generate observed summary statistics
         print("Parameters (bound):")
-        print([p.boundary for p in self.as_parameter_list()])
+        print([p.boundary() for p in self.as_parameter_list()])
         print("Parameters (drift):")
-        print([p.drift for p in self.as_parameter_list()])
+        print([p.drift() for p in self.as_parameter_list()])
         print("Parameters (ndt):")
-        print([p.ndt for p in self.as_parameter_list()])
+        print([p.ndt() for p in self.as_parameter_list()])
         
-        observed_summary_statistics = forward_equations(self.as_parameter_list())
+        moments = ez.forward(self.as_parameter_list())
         
         # Resample the summary statistics
-        resampled_summary_statistics = resample_summary_stats(observed_summary_statistics, sample_sizes)
+        observations = [
+            s.sample(sample_size) 
+            for s, sample_size in zip(moments, sample_sizes)
+        ]
         
         # Compute the parameters
-        estimated_parameters = inverse_equations(resampled_summary_statistics)
+        estimated_parameters = ez.inverse(observations)
         
         # Set the parameters
-        self.set_boundary([p.boundary for p in estimated_parameters])
-        self.set_drift([p.drift for p in estimated_parameters])
-        self.set_ndt([p.ndt for p in estimated_parameters])
+        self.set_boundary([p.boundary() for p in estimated_parameters])
+        self.set_drift([p.drift() for p in estimated_parameters])
+        self.set_ndt([p.ndt() for p in estimated_parameters])
         
     
     def __str__(self):
@@ -178,6 +296,9 @@ class DesignMatrix:
                            drift_weights={self._drift_weights}, \
                            ndt_weights={self._ndt_weights})"
 
+"""
+Demo
+"""
 def demonstrate_design_matrix_parameter_estimation():
     design_matrix = DesignMatrix(
         boundary_design = np.array([[1, 0, 0], 

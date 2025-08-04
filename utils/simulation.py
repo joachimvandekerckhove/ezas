@@ -1,30 +1,15 @@
 #!/usr/bin/env python3
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+
 import numpy as np
 from typing import Tuple, List
-from base import (Parameters, SummaryStats, 
-                   forward_equations, resample_summary_stats, inverse_equations)
+from vendor.ezas.base import ez_equations as ez
+from vendor.ezas.classes.parameters import Parameters
 import unittest
 import argparse
-import time
-import inspect
-import os
-
-"""
-Announce utility
-"""
-import time
-import inspect
-
-def announce():
-    frame = inspect.stack()[1]
-    full_path = frame.filename
-    line_number = frame.lineno
-    function_name = frame.function
-    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
-
-    print(f"\n# [{timestamp}] {full_path}:{line_number}#{function_name}()\n")
-
 
 """
 Results class
@@ -156,9 +141,9 @@ def run_simulation(N: int,
     results = []
     for _ in range(10000):
         true_params = Parameters.random(lower_bound, upper_bound)
-        pred_stats = forward_equations(true_params)
-        obs_stats = resample_summary_stats(pred_stats, N)
-        est_params = inverse_equations(obs_stats)
+        pred_stats = ez.forward(true_params)
+        obs_stats = [s.sample(N) for s in pred_stats]
+        est_params = ez.inverse(obs_stats)
         bias, sq_error, relative_bias = calculate_error(true_params, est_params)
         results.append(Results(true_params, est_params, bias, sq_error, relative_bias))
     
@@ -170,17 +155,24 @@ Test suite
 class TestSuite(unittest.TestCase):
     pass
 
+"""
+Demo
+"""
+def demo():
+    print("Demo for simulation:")
+    print("No demo available")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     parser.add_argument("--test", action="store_true", help="Run the test suite")
-    parser.add_argument("--simstudy", action="store_true", help="Run the simulation study")
+    parser.add_argument("--demo", action="store_true", help="Run the demo")
     
     args = parser.parse_args()  
     
     if args.test:
         unittest.main(argv=[__file__], verbosity=0, failfast=True)
 
-    if args.simstudy:
-        run_simulation(N=100, lower_bound=Parameters(0.0, 0.0, 0.0), upper_bound=Parameters(1.0, 1.0, 1.0))
+    if args.demo:
+        demo()
     

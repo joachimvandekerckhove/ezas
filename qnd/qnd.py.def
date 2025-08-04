@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+
 import numpy as np
 from typing import Tuple, List
-from base import (SummaryStats, Parameters, 
-                   inverse_equations, forward_equations, resample_summary_stats)
-from dmat import DesignMatrix
+from vendor.ezas.base import ez_equations as ez
+from vendor.ezas.classes.moments import Observations
+from vendor.ezas.classes.parameters import Parameters
+from vendor.ezas.classes.design_matrix import DesignMatrix
 import unittest
 import time
 import argparse
@@ -14,16 +19,14 @@ import copy
 """
 Quick and dirty parameter estimation
 """
-def qnd_parameter_estimation(
-    observed_summary_statistics: SummaryStats, 
-    sample_size: int,
+def qnd_single_parameter_estimation(
+    observations: Observations, 
     n_repetitions: int = 1000
 ) -> tuple[Parameters, Parameters, Parameters, Parameters]:
     """Estimate EZ-diffusion parameters with uncertainty given observed statistics.
     
     Args:
-        observed_summary_statistics: Observed summary statistics (SummaryStats)
-        sample_size: Number of trials used to generate the statistics (int)
+        observations: Observed summary statistics (Observations)
         n_repetitions: Number of repetitions
     Returns:
         - mean_params: mean of Parameters (as a Parameters object)
@@ -31,14 +34,12 @@ def qnd_parameter_estimation(
         - lower_quantile_params: lower quantile of Parameters (as a Parameters object)
         - upper_quantile_params: upper quantile of Parameters (as a Parameters object)
     """
-    if not isinstance(observed_summary_statistics, SummaryStats):
-        raise TypeError("observed_summary_statistics must be a SummaryStats")
-    if not isinstance(sample_size, int):
-        raise TypeError("sample_size must be an integer")
+    if not isinstance(observations, Observations):
+        raise TypeError("observations must be of type Observations")
         
     # Initialize the parameter matrix (K x 1 list of Parameters)
     parameter_matrix = [
-        inverse_equations(resample_summary_stats(observed_summary_statistics, sample_size))
+        ez.inverse_equations(observations.resample().to_moments())
         for _ in range(n_repetitions)
     ]
     # Collapse to mean/std using Parameters.mean/std
@@ -54,7 +55,7 @@ def qnd_parameter_estimation(
 """
 Demonstrate basic QND parameter estimation
 """
-def demonstrate_qnd_parameter_estimation(true_parameters: Parameters, sample_size: int):
+def demonstrate_qnd_single_parameter_estimation(true_parameters: Parameters, sample_size: int):
     """Demonstrate basic QND parameter estimation.
     
     Args:
@@ -62,12 +63,15 @@ def demonstrate_qnd_parameter_estimation(true_parameters: Parameters, sample_siz
         sample_size: Number of trials used to generate the statistics (int)
     """
     # Generate some random parameters
-    predicted_summary_statistics = forward_equations(true_parameters)
-    observed_summary_statistics = resample_summary_stats(predicted_summary_statistics, sample_size)
+    predicted_summary_statistics = ez.forward_equations(true_parameters)
+    observed_summary_statistics = predicted_summary_statistics.sample(sample_size)
     
     # Estimate the parameters and time the operation
     start_time = time.time()
-    (qnd_parameters_mean, qnd_parameters_std, lower_quantile_params, upper_quantile_params) = qnd_parameter_estimation(observed_summary_statistics, sample_size, n_repetitions=1000)
+    (qnd_parameters_mean, 
+     qnd_parameters_std, 
+     lower_quantile_params, 
+     upper_quantile_params) = qnd_single_parameter_estimation(observed_summary_statistics, n_repetitions=1000)
     end_time = time.time()
     
     # Write report to console
@@ -86,7 +90,7 @@ def demonstrate_qnd_parameter_estimation(true_parameters: Parameters, sample_siz
 """
 Simulation study for basic QND parameter estimation
 """
-def qnd_simulation_study(
+def qnd_single_parameter_simulation_study(
     true_parameters: Parameters, 
     sample_size: int, 
     simulation_repetitions: int):
@@ -100,9 +104,12 @@ def qnd_simulation_study(
     total_coverage = 0
         
     for _ in range(simulation_repetitions):
-        predicted_summary_statistics = forward_equations(true_parameters)
-        observed_summary_statistics = resample_summary_stats(predicted_summary_statistics, sample_size)
-        (qnd_parameters_mean, qnd_parameters_std, lower_quantile_params, upper_quantile_params) = qnd_parameter_estimation(observed_summary_statistics, sample_size, n_repetitions=1000)
+        predicted_summary_statistics = ez.forward_equations(true_parameters)
+        observed_summary_statistics = predicted_summary_statistics.sample(sample_size)
+        (qnd_parameters_mean, 
+         qnd_parameters_std, 
+         lower_quantile_params, 
+         upper_quantile_params) = qnd_single_parameter_estimation(observed_summary_statistics, n_repetitions=1000)
         
         boundary_covered = true_parameters.boundary >= lower_quantile_params.boundary and \
             true_parameters.boundary <= upper_quantile_params.boundary
@@ -143,14 +150,14 @@ def qnd_simulation_study(
 """
 Quick and dirty parameter estimation of beta weights
 """
-def qnd_parameter_estimation_beta_weights(
-    observed_summary_statistics: list[SummaryStats],
+def qnd_multiple_parameter_estimation_beta_weights(
+    observations: list[Observations],
     design_matrix: DesignMatrix
 ) -> DesignMatrix:
     """Estimate EZ-diffusion parameters with uncertainty given observed statistics and design matrices.
     
     Args:
-        observed_summary_statistics: Observed summary statistics (SummaryStats)
+        observations: Observed summary statistics (Observations)
         design_matrix: Design matrix for parameter estimation (n_conditions x n_parameters)
     Returns:
         - The updated design matrix with the beta weights
@@ -160,9 +167,9 @@ def qnd_parameter_estimation_beta_weights(
     local_matrix = copy.deepcopy(design_matrix)
 
     # Inject the observed summary statistics into the design matrix
-    local_matrix.set_boundary([s.boundary for s in observed_summary_statistics])
-    local_matrix.set_drift([s.drift for s in observed_summary_statistics])
-    local_matrix.set_ndt([s.ndt for s in observed_summary_statistics])
+    local_matrix.set_boundary([s.boundary() for s in observations])
+    local_matrix.set_drift([s.drift() for s in observations])
+    local_matrix.set_ndt([s.ndt() for s in observations])
     
     # Estimate the parameters
     local_matrix.fix()
@@ -260,17 +267,15 @@ def demonstrate_qnd_parameter_estimation_beta_weights(
         lower_quantile_drift_weights, upper_quantile_drift_weights, \
         lower_quantile_ndt_weights, upper_quantile_ndt_weights
 
-def qnd_parameter_estimation_design_matrix(
-    observed_summary_statistics: list[SummaryStats], 
-    sample_size: list[int],
+def qnd_multiple_parameter_estimation_design_matrix(
+    observations: list[Observations], 
     design_matrix: DesignMatrix,
     n_repetitions: int = 1000
 ) -> tuple[Parameters, Parameters, Parameters, Parameters]:
     """Estimate EZ-diffusion parameters with uncertainty given observed statistics and design matrices.
 
     Args:
-        observed_summary_statistics: Observed summary statistics (SummaryStats)
-        sample_size: Number of trials used to generate the statistics (int)
+        observations: Observed summary statistics (Observations)
         design_matrix: Design matrix for parameter estimation (n_conditions x n_parameters)
         n_repetitions: Number of repetitions
     Returns:
@@ -279,14 +284,14 @@ def qnd_parameter_estimation_design_matrix(
         - lower_quantile_params: lower quantile of Parameters (as a Parameters object)
         - upper_quantile_params: upper quantile of Parameters (as a Parameters object)
     """
-    if not isinstance(observed_summary_statistics, list):
-        raise TypeError("observed_summary_statistics must be a list of SummaryStats")
-    if not isinstance(sample_size, list):
-        raise TypeError("sample_size must be a list of integers")
+    if not isinstance(observations, list):
+        raise TypeError("observations must be a list of Observations")
         
     # Initialize the parameter matrix (K x 1 list of Parameters)
     parameter_matrix = [
-        inverse_equations(resample_summary_stats(observed_summary_statistics, sample_size))
+        [
+            ez.inverse_equations(o.resample().to_moments()) for o in observations
+        ]
         for _ in range(n_repetitions)
     ]
     # Collapse to mean/std using Parameters.mean/std
@@ -302,14 +307,17 @@ def qnd_parameter_estimation_design_matrix(
 """
 Demonstrate basic QND parameter estimation
 """
-def demonstrate_qnd_parameter_estimation(true_parameters: Parameters, sample_size: int):
+def demonstrate_qnd_single_parameter_estimation(true_parameters: Parameters, sample_size: int):
     # Generate some random parameters
-    predicted_summary_statistics = forward_equations(true_parameters)
-    observed_summary_statistics = resample_summary_stats(predicted_summary_statistics, sample_size)
+    predicted_summary_statistics = ez.forward_equations(true_parameters)
+    observed_summary_statistics = predicted_summary_statistics.sample(sample_size)
     
     # Estimate the parameters and time the operation
     start_time = time.time()
-    (qnd_parameters_mean, qnd_parameters_std, lower_quantile_params, upper_quantile_params) = qnd_parameter_estimation(observed_summary_statistics, sample_size, n_repetitions=1000)
+    (qnd_parameters_mean, 
+     qnd_parameters_std, 
+     lower_quantile_params, 
+     upper_quantile_params) = qnd_single_parameter_estimation(observed_summary_statistics, n_repetitions=1000)
     end_time = time.time()
     
     # Write report to console
@@ -321,14 +329,14 @@ def demonstrate_qnd_parameter_estimation(true_parameters: Parameters, sample_siz
      > QND parameters (sdev) : {qnd_parameters_std}
      > QND parameters (lower): {lower_quantile_params}
      > QND parameters (upper): {upper_quantile_params}
-     > Time taken            : {(end_time - start_time):.2f} seconds
+     > Time taken            : {(end_time - start_time):.6f} seconds
     """
     print(report)
 
 """
 Simulation study for basic QND parameter estimation
 """
-def qnd_simulation_study(true_parameters: Parameters, sample_size: int, simulation_repetitions: int):
+def qnd_single_parameter_simulation_study(true_parameters: Parameters, sample_size: int, simulation_repetitions: int):
     
     # Initialize a progress bar
     progress_bar = tqdm(total=simulation_repetitions, desc="Simulation progress")
@@ -339,9 +347,12 @@ def qnd_simulation_study(true_parameters: Parameters, sample_size: int, simulati
     total_coverage = 0
         
     for _ in range(simulation_repetitions):
-        predicted_summary_statistics = forward_equations(true_parameters)
-        observed_summary_statistics = resample_summary_stats(predicted_summary_statistics, sample_size)
-        (qnd_parameters_mean, qnd_parameters_std, lower_quantile_params, upper_quantile_params) = qnd_parameter_estimation(observed_summary_statistics, sample_size, n_repetitions=1000)
+        predicted_summary_statistics = ez.forward_equations(true_parameters)
+        observed_summary_statistics = predicted_summary_statistics.sample(sample_size)
+        (qnd_parameters_mean, 
+         qnd_parameters_std, 
+         lower_quantile_params, 
+         upper_quantile_params) = qnd_single_parameter_estimation(observed_summary_statistics, n_repetitions=1000)
         
         boundary_covered = true_parameters.boundary >= lower_quantile_params.boundary and \
             true_parameters.boundary <= upper_quantile_params.boundary
@@ -404,40 +415,51 @@ if __name__ == "__main__":
         
     if args.demo:
         print("Running demo...")
-        demonstrate_qnd_parameter_estimation(true_parameters = Parameters(1.0, 0.5, 0.2), sample_size = 10)
-        demonstrate_qnd_parameter_estimation(true_parameters = Parameters(1.0, 0.5, 0.2), sample_size = 160)
+        demonstrate_qnd_single_parameter_estimation(
+            true_parameters = Parameters(1.0, 0.5, 0.2), 
+            sample_size = 10)
+        demonstrate_qnd_single_parameter_estimation(
+            true_parameters = Parameters(1.0, 0.5, 0.2), 
+            sample_size = 100)
+        demonstrate_qnd_single_parameter_estimation(
+            true_parameters = Parameters(1.0, 0.5, 0.2), 
+            sample_size = 1000)
         
     if args.simulation_basic:
         print("Running simulation...")
-        qnd_simulation_study(true_parameters = Parameters(1.0, 0.5, 0.2), sample_size = 100, simulation_repetitions = 1000)
+        qnd_single_parameter_simulation_study(
+            true_parameters = Parameters(1.0, 0.5, 0.2), 
+            sample_size = 100, 
+            simulation_repetitions = 1000)
 
-    # if args.simulation_design_matrix:
-    #     print("Running simulation with design matrix...")
-    #     qnd_simulation_study_design_matrix(true_parameters = ez.Parameters(1.0, 0.5, 0.2), sample_size = 100, simulation_repetitions = 10000)
+    if args.simulation_design_matrix:
+        print("Running simulation with design matrix...")
+        qnd_multiple_parameter_estimation_design_matrix(
+            true_parameters = Parameters(1.0, 0.5, 0.2), 
+            sample_size = 100, 
+            simulation_repetitions = 10000)
 
-    design_matrix = DesignMatrix(
-        boundary_design = np.array([[1, 0, 0], 
-                                    [0, 1, 0], 
-                                    [0, 0, 1], 
-                                    [0, 0, 1]]),
-        drift_design    = np.array([[1, 0, 0], 
-                                    [0, 1, 0], 
-                                    [0, 0, 1], 
-                                    [0, 1, 0]]),
-        ndt_design      = np.array([[1, 0, 0], 
-                                    [0, 1, 0], 
-                                    [0, 0, 1], 
-                                    [1, 0, 0]]),
-        boundary_weights = np.array([1.0, 1.5, 2.0]),
-        drift_weights    = np.array([0.4, 0.8, 1.2]),
-        ndt_weights      = np.array([0.2, 0.3, 0.4])
-        )
-    demonstrate_qnd_parameter_estimation_beta_weights(
-        design_matrix = design_matrix,
-        sample_sizes = [100, 200, 300, 400],
-        n_repetitions = 1000)
-
-
+        design_matrix = DesignMatrix(
+            boundary_design = np.array([[1, 0, 0], 
+                                        [0, 1, 0], 
+                                        [0, 0, 1], 
+                                        [0, 0, 1]]),
+            drift_design    = np.array([[1, 0, 0], 
+                                        [0, 1, 0], 
+                                        [0, 0, 1], 
+                                        [0, 1, 0]]),
+            ndt_design      = np.array([[1, 0, 0], 
+                                        [0, 1, 0], 
+                                        [0, 0, 1], 
+                                        [1, 0, 0]]),
+            boundary_weights = np.array([1.0, 1.5, 2.0]),
+            drift_weights    = np.array([0.4, 0.8, 1.2]),
+            ndt_weights      = np.array([0.2, 0.3, 0.4])
+            )
+        demonstrate_qnd_parameter_estimation_beta_weights(
+            design_matrix = design_matrix,
+            sample_sizes = [100, 200, 300, 400],
+            n_repetitions = 1000)
 
 
 
@@ -446,35 +468,29 @@ if __name__ == "__main__":
 QND design matrix parameter estimation
 """
 def qnd_design_matrix_parameter_estimation(
-    obs_stats: List[SummaryStats], 
-    N: List[int], 
+    obs_stats: List[Observations], 
     design_matrix: DesignMatrix
 ) -> Tuple[List[Parameters], List[Parameters]]:
     """Estimate EZ-diffusion parameters with uncertainty given observed statistics and design matrices.
     Args:
-        obs_stats: Observed summary statistics (array of SummaryStats)
-        N: Number of trials used to generate the statistics (array of ints)
+        obs_stats: Observed summary statistics (array of Observations)
         design_matrix: Design matrix for parameter estimation (n_conditions x n_parameters)
     Returns:
         Tuple containing:
         - Estimated parameters (Parameters)
         - Standard deviation of the parameters (Parameters)
     """
-    if not (isinstance(obs_stats, list) and all(isinstance(x, SummaryStats) for x in obs_stats)):
-        raise TypeError("obs_stats must be a list of SummaryStats")
-    if not (isinstance(N, list) and all(isinstance(x, int) for x in N)):
-        raise TypeError("N must be a list of integers")
-    if len(obs_stats) != len(N):
-        raise ValueError("obs_stats and N must have the same length")
+    if not (isinstance(obs_stats, list) and all(isinstance(x, Observations) for x in obs_stats)):
+        raise TypeError("obs_stats must be a list of Observations")
     
     # Use the inverse equations to get quick and dirty estimates of the parameters
-    qnd_params = inverse_equations(obs_stats)
+    qnd_params = ez.inverse_equations(obs_stats)
     
     # Initialize the parameter matrix
     parameter_list = []
     for _ in range(1000):
-        resampled_obs_stats = resample_summary_stats(obs_stats, N)
-        resampled_qnd_params = inverse_equations(resampled_obs_stats)
+        resampled_obs_stats = [o.resample() for o in obs_stats]
+        resampled_qnd_params = ez.inverse_equations(resampled_obs_stats)
         parameter_list.append(resampled_qnd_params)
     
     # Get the mean of the parameters
