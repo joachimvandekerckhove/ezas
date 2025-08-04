@@ -216,7 +216,9 @@ class DesignMatrix:
     
     def sample(self, sample_sizes: list[int]):
         if len(sample_sizes) != self._boundary_design.shape[0]:
-            raise ValueError("sample_sizes must be the same length as the number of parameters")
+            raise ValueError(
+                f"sample_sizes must be the same length as the number of parameters, " +
+                f"but got {len(sample_sizes)} and {self._boundary_design.shape[0]}")
         
         self._fix_parameters()
         self._fix_weights()
