@@ -14,8 +14,8 @@ The EZ-diffusion model is a simplified version of the drift-diffusion model that
 
 EZAS provides multiple complementary approaches to parameter estimation:
 
-- **[`base/`](./base/README.md)`** - Core mathematical equations (forward/inverse transformations)
-- **[`classes/`](./classes/README.md)`** - Data structures for observations, parameters, and design matrices
+- **[`base/`](./base/README.md)** - Core mathematical equations (forward/inverse transformations)
+- **[`classes/`](./classes/README.md)** - Data structures for observations, parameters, and design matrices
 - **[`utils/`](./utils/README.md)** - Utility functions for linear algebra, simulation, and result formatting
 - **[`qnd/`](./qnd/README.md)** - Quick-and-dirty bootstrap methods for fast uncertainty estimates
 - **[`ez_pymc/`](./ez_pymc/README.md)** - Full Bayesian estimation using PyMC for complete uncertainty quantification
