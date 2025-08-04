@@ -9,7 +9,6 @@ PyMC methods use Markov Chain Monte Carlo (MCMC) to sample from the full posteri
 - **`pymc_single.py`** - Full Bayesian estimation for a single participant or condition
 - **`pymc_multiple.py`** - Handle multiple participants/conditions simultaneously
 - **`pymc_beta_weights.py`** - Complex experimental designs with design matrices and beta weights
-- **`pymc_inference.py`** - Parameter inference and comparison methods
 
 The approach uses proper Bayesian priors and likelihood functions to estimate not just parameter values but their full posterior distributions. This gives you credible intervals, posterior correlations, and diagnostic information about convergence. It's slower than QND methods but provides the gold standard for uncertainty quantification.
 
