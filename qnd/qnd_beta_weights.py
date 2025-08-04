@@ -35,14 +35,15 @@ _EXAMPLE_DESIGN_MATRIX = DesignMatrix(
         drift_weights    = np.array([0.4, 0.8, 1.2]),
         ndt_weights      = np.array([0.2, 0.3, 0.4])
     )
-
+_DEFAULT_N_BOOTSTRAP = 1000
 
 """
 "Quick and dirty" parameter estimation of beta weights
 """
 def qnd_beta_weights_estimation(
     observations: list[Observations],
-    working_matrix: DesignMatrix
+    working_matrix: DesignMatrix,
+    n_bootstrap: int = _DEFAULT_N_BOOTSTRAP
 ) -> Tuple[BetaWeights, Parameters]:
     """Estimate EZ-diffusion parameters with uncertainty given observed statistics and design matrices.
     
@@ -80,24 +81,46 @@ def qnd_beta_weights_estimation(
     parameters_list = []
     
     # Bootstrap the distribution of the parameters
-    for _ in range(1000):
-        parameters = [ ez.inverse(o.resample().to_moments()) for o in observations ]
+    for _ in range(n_bootstrap):
+        parameters = [
+            ez.inverse(o.resample().to_moments())
+            for o in observations
+        ]
         working_matrix.set_parameters(parameters)
         parameters_list.append(working_matrix.get_parameters())
         beta_weights_list.append(working_matrix.get_beta_weights())
     
     # Get the mean of the beta weights
-    return BetaWeights.summarize_matrix(beta_weights_list), Parameters.summarize_matrix(parameters_list)
+    return BetaWeights.summarize_matrix(beta_weights_list), \
+        Parameters.summarize_matrix(parameters_list), \
+        beta_weights_list
     
 
-def demo():
+def demo(design_matrix: DesignMatrix|None = None,
+         sample_sizes: list[int]|None = None):
     """
     Demonstrate basic QND parameter estimation with beta weights.
     """
     
-    design_matrix = _EXAMPLE_DESIGN_MATRIX
+    if design_matrix is None:
+        design_matrix = _EXAMPLE_DESIGN_MATRIX
     
-    sample_sizes = [100, 200, 300, 400]
+    if sample_sizes is None:
+        sample_sizes = [100, 200, 300, 400]
+    
+    if not isinstance(design_matrix, DesignMatrix):
+        raise TypeError("design_matrix must be a DesignMatrix")
+    
+    if not isinstance(sample_sizes, list) or \
+        not all(isinstance(s, int) for s in sample_sizes):
+        raise TypeError("sample_sizes must be a list of int")
+    
+    if len(sample_sizes) != design_matrix.boundary_design().shape[0]:
+        raise ValueError("sample_sizes must have the same number of elements \
+            as the number of rows in the design matrix")
+    
+    if not all(s > 0 for s in sample_sizes):
+        raise ValueError("sample_sizes must be a list of positive integers")
     
     # Get the true beta weights
     true_parameters = design_matrix.get_parameters()
@@ -128,7 +151,7 @@ def demo():
     # Estimate the parameters
     print(f"\n## Estimating parameters...", end="")
     start_time = time.time()
-    estimated_beta_weights, estimated_parameters = \
+    estimated_beta_weights, estimated_parameters, _ = \
         qnd_beta_weights_estimation(observations, working_matrix)
     end_time = time.time()
     print(f" ({1000 * (end_time - start_time):.0f} ms)")
@@ -149,7 +172,9 @@ def demo():
         ndt_in_bounds = (est_param.ndt_lower_bound() <= \
             true_param.ndt() <= est_param.ndt_upper_bound())
         
-        misses += int(not boundary_in_bounds) + int(not drift_in_bounds) + int(not ndt_in_bounds)
+        misses += int(not boundary_in_bounds)
+        misses += int(not drift_in_bounds)
+        misses += int(not ndt_in_bounds)
         
         print(f"✅" if boundary_in_bounds else f"❌", end="")
         print(f"✅" if drift_in_bounds    else f"❌", end="")
@@ -167,7 +192,18 @@ def demo():
 """
 Simulation study for QND parameter estimation with beta weights
 """
-def simulation(simulation_repetitions: int = 1000):
+def simulation(simulation_repetitions: int|None = None):
+    
+    if not isinstance(simulation_repetitions, int) \
+        and simulation_repetitions is not None:
+        raise TypeError("simulation_repetitions must be of type int")
+    
+    if simulation_repetitions <= 0:
+        raise ValueError("simulation_repetitions must be greater than 0")
+    
+    if simulation_repetitions is None:
+        simulation_repetitions = 1000
+    
     design_matrix = _EXAMPLE_DESIGN_MATRIX
     
     n = 160
@@ -197,7 +233,7 @@ def simulation(simulation_repetitions: int = 1000):
         
         observations = design_matrix.sample(sample_sizes)
         
-        estimated_beta_weights, _ = \
+        estimated_beta_weights, _, _ = \
             qnd_beta_weights_estimation(observations, working_matrix)
             
         # Check coverage for each beta weight position
@@ -229,15 +265,18 @@ def simulation(simulation_repetitions: int = 1000):
         
     # Close the progress bar
     progress_bar.close()
+    
+    f = 100 / simulation_repetitions
             
     print("Coverage by beta weight position:")
-    for p, c in zip(['Boundary', 'Drift', 'NDT'], [boundary_coverage, drift_coverage, ndt_coverage]):
+    for p, c in zip(['Boundary', 'Drift', 'NDT'], 
+                    [boundary_coverage, drift_coverage, ndt_coverage]):
         print(f" > {p}:")
         for i in range(n_positions):
-            print(f"   - Position {i}: {100 * c[i] / simulation_repetitions:7.1f}%  (should be ≈ 95%)")
+            print(f"   - Position {i}: {f * c[i]:7.1f}%  (should be ≈ 95%)")
     
     print(f"\nOverall coverage (all parameters in all positions):")
-    print(f" > Total   : {100 * total_coverage / simulation_repetitions:7.1f}%  (should be ≈ 63%)") # .95^9
+    print(f" > Total   : {f * total_coverage:7.1f}%  (should be ≈ 63%)") # .95^9
 
 
 
@@ -249,7 +288,8 @@ def _single_simulation_iteration(args):
     """Single simulation iteration for parallel processing."""
     _, design_matrix, working_matrix, sample_sizes, true_beta_weights = args
     observations = design_matrix.sample(sample_sizes)
-    estimated_beta_weights, _ = qnd_beta_weights_estimation(observations, working_matrix)
+    estimated_beta_weights, _, _ = \
+        qnd_beta_weights_estimation(observations, working_matrix)
     
     n_positions = len(true_beta_weights.beta_boundary_mean())
     results = []
@@ -272,8 +312,19 @@ def _single_simulation_iteration(args):
     all_covered = all(all(pos) for pos in results)
     return results, all_covered
 
-def simulation_parallel(simulation_repetitions: int = 1000):
+def simulation_parallel(simulation_repetitions: int|None = None):
     """Parallel version of the simulation using multiprocessing."""
+    
+    if not isinstance(simulation_repetitions, int) \
+        and simulation_repetitions is not None:
+        raise TypeError("simulation_repetitions must be of type int")
+    
+    if simulation_repetitions <= 0:
+        raise ValueError("simulation_repetitions must be greater than 0")
+    
+    if simulation_repetitions is None:
+        simulation_repetitions = 1000
+    
     design_matrix = _EXAMPLE_DESIGN_MATRIX
     
     n = 128
@@ -304,9 +355,10 @@ def simulation_parallel(simulation_repetitions: int = 1000):
     # Run parallel simulation
     with mp.Pool(processes=n_processes) as pool:
         # Create arguments for each iteration
-        args_list = [(i, design_matrix, working_matrix, sample_sizes, true_beta_weights) 
+        args_list = [(i, design_matrix, working_matrix, 
+                      sample_sizes, true_beta_weights) 
                     for i in range(simulation_repetitions)]
-        
+
         # Use imap for progress tracking
         results = list(tqdm(
             pool.imap(_single_simulation_iteration, args_list),
@@ -316,30 +368,97 @@ def simulation_parallel(simulation_repetitions: int = 1000):
     
     # Aggregate results
     for iteration_results, all_covered in results:
-        for i, (boundary_covered, drift_covered, ndt_covered) in enumerate(iteration_results):
+        for i, (boundary_covered, drift_covered, ndt_covered) in \
+            enumerate(iteration_results):
             if boundary_covered: boundary_coverage[i] += 1
             if drift_covered: drift_coverage[i] += 1
             if ndt_covered: ndt_coverage[i] += 1
         
         if all_covered: total_coverage += 1
     
+    f = 100 / simulation_repetitions
     # Close the progress bar
     print("Coverage by beta weight position:")
-    for p, c in zip(['Boundary', 'Drift', 'NDT'], [boundary_coverage, drift_coverage, ndt_coverage]):
+    for p, c in zip(['Boundary', 'Drift', 'NDT'], 
+                    [boundary_coverage, drift_coverage, ndt_coverage]):
         print(f" > {p}:")
         for i in range(n_positions):
-            print(f"   - Position {i}: {100 * c[i] / simulation_repetitions:7.1f}%  (should be ≈ 95%)")
+            print(f"   - Position {i}: {f * c[i]:7.1f}%  (should be ≈ 95%)")
     
     print(f"\nOverall coverage (all parameters in all positions):")
-    print(f" > Total   : {100 * total_coverage / simulation_repetitions:7.1f}%  (should be ≈ 63%)") # .95^9
+    print(f" > Total   : {f * total_coverage:7.1f}%  (should be ≈ 63%)") # .95^9
 
 
 """
 Test suite
 """
-class TestSuite(unittest.TestCase):        
-    def test(self):
-        pass
+class TestSuite(unittest.TestCase):
+    def setUp(self):
+        import io
+        self.stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        os.environ['TQDM_DISABLE'] = '1'
+
+    def tearDown(self):
+        sys.stdout = self.stdout
+        os.environ['TQDM_DISABLE'] = '0'
+    
+    def test_demo_execution_1(self):
+        demo()
+        self.assertIn("## True beta weights:", sys.stdout.getvalue())
+        self.assertIn("## True parameters:", sys.stdout.getvalue())
+        self.assertIn("## Simulating data...", sys.stdout.getvalue())
+        self.assertIn("## Observations (4 conditions):", sys.stdout.getvalue())
+        self.assertIn("## Estimating parameters...", sys.stdout.getvalue())
+        self.assertIn("## Checking parameter coverage...", sys.stdout.getvalue())
+    
+    def test_demo_execution_2(self):
+        demo(design_matrix=_EXAMPLE_DESIGN_MATRIX,
+             sample_sizes=[100, 200, 300, 400])
+        self.assertIn("## True beta weights:", sys.stdout.getvalue())
+        self.assertIn("## True parameters:", sys.stdout.getvalue())
+        self.assertIn("## Simulating data...", sys.stdout.getvalue())
+        self.assertIn("## Observations (4 conditions):", sys.stdout.getvalue())
+        self.assertIn("## Estimating parameters...", sys.stdout.getvalue())
+        self.assertIn("## Checking parameter coverage...", sys.stdout.getvalue())
+    
+    def test_demo_input_checks_1(self):
+        with self.assertRaises(TypeError):
+            demo(design_matrix="test")
+        with self.assertRaises(TypeError):
+            demo(sample_sizes="test")
+        with self.assertRaises(ValueError):
+            demo(design_matrix=_EXAMPLE_DESIGN_MATRIX,
+                 sample_sizes=[100, 200, 300])
+        with self.assertRaises(ValueError):
+            demo(design_matrix=_EXAMPLE_DESIGN_MATRIX,
+                 sample_sizes=[100, 200, 300, 400, 500])
+        with self.assertRaises(TypeError):
+            demo(design_matrix=_EXAMPLE_DESIGN_MATRIX,
+                 sample_sizes=[100, 200, 300, 40.9])
+        with self.assertRaises(ValueError):
+            demo(design_matrix=_EXAMPLE_DESIGN_MATRIX,
+                 sample_sizes=[100, 200, 300, 400, -500])
+    
+    def test_simulation_input_checks_1(self):
+        with self.assertRaises(ValueError):
+            simulation(simulation_repetitions=-1)
+        with self.assertRaises(TypeError):
+            simulation(simulation_repetitions=0.5)
+        with self.assertRaises(ValueError):
+            simulation(simulation_repetitions=0)
+        with self.assertRaises(TypeError):
+            simulation(simulation_repetitions="test")
+    
+    def test_simulation_parallel_input_checks(self):
+        with self.assertRaises(ValueError):
+            simulation_parallel(simulation_repetitions=-1)
+        with self.assertRaises(TypeError):
+            simulation_parallel(simulation_repetitions=0.5)
+        with self.assertRaises(ValueError):
+            simulation_parallel(simulation_repetitions=0)
+        with self.assertRaises(TypeError):
+            simulation_parallel(simulation_repetitions="test")
 
 
 if __name__ == "__main__":
