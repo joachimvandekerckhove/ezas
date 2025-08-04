@@ -351,6 +351,9 @@ class BetaWeights:
     
     @staticmethod
     def summarize(beta_weights: list['BetaWeights']) -> 'BetaWeights':
+        """
+        Summarize a list of BetaWeights by averaging each parameter position separately.
+        """
         return BetaWeights(
             beta_boundary_mean=np.mean([b.beta_boundary_mean() for b in beta_weights]),
             beta_drift_mean=np.mean([b.beta_drift_mean() for b in beta_weights]),
@@ -452,6 +455,9 @@ Test suite
 class TestSuite(unittest.TestCase):
     
     def test_design_matrix(self):
+        """
+        Test that the design matrix works correctly.
+        """
         design_matrix = DesignMatrix(
             boundary_design = np.array([[1, 0, 0], 
                                         [0, 1, 0], 

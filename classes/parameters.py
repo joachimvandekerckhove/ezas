@@ -151,6 +151,13 @@ class Parameters:
                           self._drift - other._drift, 
                           self._ndt - other._ndt)
 
+    def __eq__(self, other):
+        if not isinstance(other, Parameters):
+            return False
+        return self.boundary() == other.boundary() and \
+               self.drift() == other.drift() and \
+               self.ndt() == other.ndt()
+    
     def __str__(self):
         if self.has_bounds():
             return f"{'Boundary:':10s}{self._boundary:5.2f} in [{self._boundary_lower_bound:5.2f}, {self._boundary_upper_bound:5.2f}], " + \
@@ -360,26 +367,57 @@ class Parameters:
         return quantile_params
 
 # --- TESTS AND DEMO ---
-class TestParameters(unittest.TestCase):
+class TestSuite(unittest.TestCase):
     def test_basic_init(self):
+        """
+        Test that the Parameters class works correctly.
+        """
         p = Parameters(1.0, 0.5, 0.2)
         self.assertEqual(p.boundary(), 1.0)
         self.assertEqual(p.drift(), 0.5)
         self.assertEqual(p.ndt(), 0.2)
     def test_bounds(self):
+        """
+        Test that the Parameters class works correctly with bounds.
+        """
         p = Parameters(1.0, 0.5, 0.2, boundary_lower_bound=0.5, boundary_upper_bound=2.0)
         self.assertTrue(p.has_bounds())
     def test_sd(self):
+        """
+        Test that the Parameters class works correctly with standard deviations.
+        """
         p = Parameters(1.0, 0.5, 0.2, boundary_sd=0.1)
         self.assertTrue(p.has_sd())
     def test_sub(self):
+        """
+        Test that the Parameters class works correctly with subtraction.
+        """
         p1 = Parameters(1.0, 0.5, 0.2)
         p2 = Parameters(0.5, 0.2, 0.1)
         diff = p1 - p2
         self.assertAlmostEqual(diff.boundary(), 0.5)
         self.assertAlmostEqual(diff.drift(), 0.3)
         self.assertAlmostEqual(diff.ndt(), 0.1)
+    def test_eq(self):
+        """
+        Test that the Parameters class works correctly with equality.
+        """
+        p1 = Parameters(1.0, 0.5, 0.2)
+        p2 = Parameters(1.0, 0.5, 0.2)
+        self.assertTrue(p1 == p2)
+        p3 = Parameters(1.0, 0.5, 0.3)
+        self.assertFalse(p1 == p3)
+        p4 = Parameters(1.0, 0.6, 0.2)
+        self.assertFalse(p1 == p4)
+        p5 = Parameters(1.1, 0.5, 0.2)
+        self.assertFalse(p1 == p5)
+        self.assertFalse(p1 == None)
+        self.assertFalse(p1 == "not a Parameters object")
+        
     def test_random(self):
+        """
+        Test that the Parameters class works correctly with random parameters.
+        """
         rng = np.random.default_rng(42)
         lb = Parameters(0, 0, 0)
         ub = Parameters(1, 1, 1)

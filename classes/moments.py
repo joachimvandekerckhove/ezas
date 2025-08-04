@@ -103,24 +103,36 @@ class Observations:
                f"{'Sample size:':10s}{self.sample_size():5d}"
 
 # --- TESTS AND DEMO ---
-class TestMomentsObservations(unittest.TestCase):
+class TestSuite(unittest.TestCase):
     def test_moments_init(self):
+        """
+        Test that the Moments class works correctly.
+        """
         m = Moments(0.8, 0.5, 0.1)
         self.assertEqual(m.accuracy, 0.8)
         self.assertEqual(m.mean_rt, 0.5)
         self.assertEqual(m.var_rt, 0.1)
     def test_observations_init(self):
+        """
+        Test that the Observations class works correctly.
+        """
         o = Observations(8, 0.5, 0.1, 10)
         self.assertEqual(o.accuracy(), 8)
         self.assertEqual(o.mean_rt(), 0.5)
         self.assertEqual(o.var_rt(), 0.1)
         self.assertEqual(o.sample_size(), 10)
     def test_sample(self):
+        """
+        Test that the sample method works correctly.
+        """
         m = Moments(0.7, 0.4, 0.2)
         o = m.sample(10)
         self.assertIsInstance(o, Observations)
         self.assertEqual(o.sample_size(), 10)
     def test_resample(self):
+        """
+        Test that the resample method works correctly.
+        """
         m = Moments(0.7, 0.4, 0.2)
         o = m.sample(10)
         o2 = o.resample(5)

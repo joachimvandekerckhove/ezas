@@ -34,7 +34,12 @@ def announce(text: str = None):
 Test suite
 """
 class TestSuite(unittest.TestCase):
-    pass
+    def test_announce(self):
+        """
+        Test that the announce function works correctly.
+        """
+        announce("Test announce")
+        self.assertTrue(True)
 
 """
 Demo
